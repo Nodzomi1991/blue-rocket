@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e27">
+<title>Blue Rocket — Космическая гонка</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0a0e27;
+    font-family: 'Courier New', monospace;
+    color: #e8f4ff;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+.screen {
+position: fixed;
+inset: 0;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 20px;
+background: radial-gradient(ellipse at top, #1a2450 0%, #0a0e27 70%);
+z-index: 10;
+overflow-y: auto;
+}
+.screen.hidden { display: none; }
+
+h1 {
+font-size: clamp(28px, 8vw, 52px);
+font-weight: 900;
+letter-spacing: 3px;
+margin-bottom: 8px;
+background: linear-gradient(90deg, #4af2ff 0%, #6b9cff 50%, #b85cff 100%);
+-webkit-background-clip: text;
+background-clip: text;
+color: transparent;
+text-shadow: 0 0 40px rgba(74, 242, 255, 0.3);
+text-align: center;
+}
+h2 {
+font-size: clamp(20px, 5vw, 28px);
+color: #4af2ff;
+margin-bottom: 20px;
+letter-spacing: 2px;
+}
+.subtitle {
+color: #8fa8d4;
+font-size: 14px;
+letter-spacing: 4px;
+margin-bottom: 20px;
+text-transform: uppercase;
+}
+
+.season-badge {
+background: rgba(184, 92, 255, 0.15);
+border: 1px solid rgba(184, 92, 255, 0.4);
+border-radius: 20px;
+padding: 6px 16px;
+font-size: 12px;
+letter-spacing: 2px;
+color: #d0a0ff;
+margin-bottom: 20px;
+text-align: center;
+}
+.season-badge .countdown { color: #4af2ff; font-weight: 900; }
+
+input {
+width: 100%;
+max-width: 320px;
+padding: 14px 18px;
+margin: 6px 0;
+background: rgba(74, 242, 255, 0.08);
+border: 2px solid rgba(74, 242, 255, 0.3);
+border-radius: 12px;
+color: #e8f4ff;
+font-size: 16px;
+font-family: inherit;
+outline: none;
+transition: all 0.2s;
+}
+input:focus {
+border-color: #4af2ff;
+background: rgba(74, 242, 255, 0.15);
+box-shadow: 0 0 20px rgba(74, 242, 255, 0.2);
+}
+input::placeholder { color: #5a7399; }
+
+button {
+padding: 14px 40px;
+margin-top: 16px;
+background: linear-gradient(135deg, #4af2ff 0%, #6b9cff 100%);
+border: none;
+border-radius: 12px;
+color: #0a0e27;
+font-size: 16px;
+font-weight: 900;
+font-family: inherit;
+letter-spacing: 2px;
+text-transform: uppercase;
+cursor: pointer;
+box-shadow: 0 4px 20px rgba(74, 242, 255, 0.4);
+transition: transform 0.15s;
+}
+button:active { transform: scale(0.96); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary {
+background: transparent;
+color: #4af2ff;
+border: 2px solid rgba(74, 242, 255, 0.4);
+box-shadow: none;
+}
+button.link {
+background: transparent;
+box-shadow: none;
+color: #8fa8d4;
+font-size: 13px;
+padding: 8px 12px;
+letter-spacing: 1px;
+margin-top: 8px;
+}
+
+.leaderboard {
+width: 100%;
+max-width: 420px;
+margin: 16px 0;
+background: rgba(10, 14, 39, 0.6);
+border: 1px solid rgba(74, 242, 255, 0.2);
+border-radius: 16px;
+padding: 20px;
+backdrop-filter: blur(10px);
+}
+.leaderboard h3 {
+font-size: 16px;
+color: #4af2ff;
+margin-bottom: 12px;
+text-align: center;
+letter-spacing: 3px;
+}
+.leader-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 10px 12px;
+margin: 4px 0;
+background: rgba(74, 242, 255, 0.05);
+border-radius: 8px;
+font-size: 15px;
+}
+.leader-row.me { background: rgba(184, 92, 255, 0.15); border: 1px solid rgba(184, 92, 255, 0.4); }
+.leader-row.top1 { background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(74, 242, 255, 0.05)); }
+.rank { width: 30px; color: #8fa8d4; font-weight: 900; }
+.rank.top1 { color: #ffd700; }
+.rank.top2 { color: #c0c0c0; }
+.rank.top3 { color: #cd7f32; }
+.nick { flex: 1; color: #e8f4ff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pts { color: #4af2ff; font-weight: 900; }
+.empty { text-align: center; color: #5a7399; padding: 20px; font-size: 13px; }
+.loading { text-align: center; color: #8fa8d4; padding: 20px; font-size: 13px; }
+
+#hud {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+padding-top: max(15px, env(safe-area-inset-top));
+padding-left: 20px;
+padding-right: 20px;
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+pointer-events: none;
+z-index: 5;
+}
+#hud.hidden { display: none; }
+.hud-box {
+background: rgba(10, 14, 39, 0.7);
+border: 1px solid rgba(74, 242, 255, 0.3);
+border-radius: 10px;
+padding: 8px 14px;
+backdrop-filter: blur(8px);
+}
+.hud-label {
+font-size: 10px;
+color: #8fa8d4;
+letter-spacing: 2px;
+text-transform: uppercase;
+}
+.hud-value {
+font-size: 20px;
+color: #4af2ff;
+font-weight: 900;
+letter-spacing: 1px;
+}
+
+.note {
+font-size: 12px;
+color: #5a7399;
+margin-top: 10px;
+text-align: center;
+max-width: 320px;
+line-height: 1.5;
+}
+
+.controls-hint {
+margin-top: 20px;
+padding: 12px 18px;
+background: rgba(74, 242, 255, 0.08);
+border-radius: 12px;
+font-size: 12px;
+color: #8fa8d4;
+text-align: center;
+max-width: 320px;
+line-height: 1.6;
+}
+.controls-hint b { color: #4af2ff; }
+
+.final-score {
+font-size: clamp(40px, 12vw, 72px);
+font-weight: 900;
+background: linear-gradient(90deg, #ffd700, #4af2ff);
+-webkit-background-clip: text;
+background-clip: text;
+color: transparent;
+margin: 20px 0;
+}
+
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+.error-msg {
+color: #ff6b6b;
+font-size: 13px;
+margin-top: 8px;
+min-height: 18px;
+text-align: center;
+max-width: 320px;
+}
+.success-msg {
+color: #4af2ff;
+font-size: 13px;
+margin-top: 8px;
+min-height: 18px;
+text-align: center;
+max-width: 320px;
+}
+
+.tab-row {
+display: flex;
+gap: 8px;
+margin-bottom: 16px;
+}
+.tab {
+padding: 10px 20px;
+background: rgba(74, 242, 255, 0.08);
+border: 1px solid rgba(74, 242, 255, 0.2);
+border-radius: 10px;
+color: #8fa8d4;
+font-size: 13px;
+font-weight: 700;
+cursor: pointer;
+letter-spacing: 1px;
+font-family: inherit;
+}
+.tab.active {
+background: rgba(74, 242, 255, 0.2);
+color: #4af2ff;
+border-color: #4af2ff;
+}
+
+#powerups {
+display: flex;
+flex-direction: column;
+gap: 8px;
+align-items: center;
+pointer-events: none;
+}
+.pwr-indicator {
+background: rgba(10, 14, 39, 0.8);
+border-radius: 10px;
+padding: 6px 12px;
+display: flex;
+align-items: center;
+gap: 8px;
+backdrop-filter: blur(8px);
+animation: pwrPulse 1.5s ease-in-out infinite;
+}
+.pwr-indicator.hidden { display: none; }
+.pwr-indicator#shieldInd { border: 1px solid rgba(74, 242, 255, 0.6); box-shadow: 0 0 20px rgba(74, 242, 255, 0.3); }
+.pwr-indicator#boostInd { border: 1px solid rgba(255, 215, 0, 0.6); box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+.pwr-icon { font-size: 18px; }
+.pwr-bar { width: 50px; height: 5px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; }
+.pwr-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
+#shieldBar { background: linear-gradient(90deg, #4af2ff, #6b9cff); }
+#boostBar { background: linear-gradient(90deg, #ffd700, #ff9500); }
+@keyframes pwrPulse {
+0%, 100% { transform: scale(1); }
+50% { transform: scale(1.04); }
+}
+
+.sound-btn {
+padding: 6px 10px !important;
+margin: 0 !important;
+background: transparent !important;
+border: 1px solid rgba(74, 242, 255, 0.3) !important;
+border-radius: 8px !important;
+font-size: 16px !important;
+color: #4af2ff !important;
+letter-spacing: 0 !important;
+box-shadow: none !important;
+min-width: auto !important;
+pointer-events: auto;
+}
+
+.loader {
+width: 40px; height: 40px;
+border: 3px solid rgba(74, 242, 255, 0.2);
+border-top-color: #4af2ff;
+border-radius: 50%;
+animation: spin 0.8s linear infinite;
+margin: 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.form-toggle {
+color: #8fa8d4;
+font-size: 13px;
+margin-top: 16px;
+text-align: center;
+}
+.form-toggle a { color: #4af2ff; text-decoration: underline; cursor: pointer; font-weight: 700; }
+
+.user-badge {
+color: #8fa8d4;
+font-size: 12px;
+margin-bottom: 12px;
+letter-spacing: 1px;
+}
+.user-badge b { color: #4af2ff; }
+</style>
+
+</head>
+<body>
+
+<div id="game">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="hud-box">
+    <div class="hud-label">Счёт</div>
+    <div class="hud-value" id="scoreVal">0</div>
+  </div>
+  <div id="powerups">
+    <div class="pwr-indicator hidden" id="shieldInd">
+      <div class="pwr-icon">🛡</div>
+      <div class="pwr-bar"><div class="pwr-fill" id="shieldBar"></div></div>
+    </div>
+    <div class="pwr-indicator hidden" id="boostInd">
+      <div class="pwr-icon">⚡</div>
+      <div class="pwr-bar"><div class="pwr-fill" id="boostBar"></div></div>
+    </div>
+  </div>
+  <div class="hud-box" style="display:flex;align-items:center;gap:10px;">
+    <button id="soundBtn" class="sound-btn" onclick="toggleSound()">🔊</button>
+    <div>
+      <div class="hud-label">Высота</div>
+      <div class="hud-value" id="altVal">0м</div>
+    </div>
+  </div>
+</div>
+
+<!-- Boot / loading -->
+
+<div id="screen-boot" class="screen">
+  <h1>BLUE ROCKET</h1>
+  <div class="loader"></div>
+  <div class="subtitle">Загрузка...</div>
+</div>
+
+<!-- Вход -->
+
+<div id="screen-login" class="screen hidden">
+  <h1>BLUE ROCKET</h1>
+  <div class="subtitle">◆ Вход ◆</div>
+
+  <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
+  <input type="password" id="loginPass" placeholder="Пароль" autocomplete="current-password">
+  <div class="error-msg" id="loginError"></div>
+  <button onclick="doLogin()" id="loginBtn">Войти</button>
+  <div class="form-toggle">
+    Нет аккаунта? <a onclick="showScreen('register')">Зарегистрироваться</a>
+  </div>
+  <div class="form-toggle">
+    <a onclick="doResetPassword()">Забыли пароль?</a>
+  </div>
+</div>
+
+<!-- Регистрация -->
+
+<div id="screen-register" class="screen hidden">
+  <h1>BLUE ROCKET</h1>
+  <div class="subtitle">◆ Регистрация ◆</div>
+
+  <input type="text" id="regNick" placeholder="Ник (от 2 символов)" maxlength="16" autocomplete="username">
+  <input type="email" id="regEmail" placeholder="Email" autocomplete="email">
+  <input type="password" id="regPass" placeholder="Пароль (от 6 символов)" autocomplete="new-password">
+  <input type="tel" id="regPhone" placeholder="Телефон (необязательно)" maxlength="20" autocomplete="tel">
+  <div class="error-msg" id="regError"></div>
+  <button onclick="doRegister()" id="regBtn">Создать аккаунт</button>
+  <div class="form-toggle">
+    Уже есть аккаунт? <a onclick="showScreen('login')">Войти</a>
+  </div>
+  <div class="note">Email нужен для входа и восстановления. Телефон — опционально, для связи. SMS не отправляем.</div>
+</div>
+
+<!-- Меню -->
+
+<div id="screen-menu" class="screen hidden">
+  <h1>BLUE ROCKET</h1>
+  <div class="user-badge">Игрок: <b id="welcomeNick">—</b></div>
+  <div class="season-badge" id="seasonBadge">СЕЗОН <span id="seasonName">—</span> · ДО КОНЦА: <span class="countdown" id="seasonCountdown">—</span></div>
+
+  <div class="leaderboard">
+    <h3>◆ ТАБЛИЦА ЛИДЕРОВ ◆</h3>
+    <div id="leaderList"><div class="loading">Загрузка...</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button onclick="startGame()">Старт</button>
+    <button class="secondary" onclick="doLogout()">Выйти</button>
+  </div>
+
+  <div class="controls-hint">
+    <b>Управление:</b> коснитесь экрана в ту сторону, куда должна лететь ракета.<br>
+    ★ — очки · <b style="color:#4af2ff">🛡 Щит</b> — защита · <b style="color:#ffd700">⚡ Буст</b> — x2 очков и скорость<br>
+    <span style="color:#5a7399;">В таблице сохраняется ваш лучший результат сезона.</span>
+  </div>
+</div>
+
+<!-- Game Over -->
+
+<div id="screen-over" class="screen hidden">
+  <h2>ПОЛЁТ ЗАВЕРШЁН</h2>
+  <div class="final-score" id="finalScore">0</div>
+  <div id="highscoreBadge" style="color:#ffd700;font-weight:900;letter-spacing:2px;margin-bottom:10px;"></div>
+  <div id="saveStatus" style="color:#8fa8d4;font-size:12px;margin-bottom:16px;"></div>
+
+  <div class="leaderboard">
+    <h3>◆ ТАБЛИЦА ЛИДЕРОВ ◆</h3>
+    <div id="leaderListOver"><div class="loading">Загрузка...</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button onclick="startGame()">Ещё раз</button>
+    <button class="secondary" onclick="showMenu()">Меню</button>
+  </div>
+</div>
+
+<!-- Firebase SDK (modular v10) -->
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged, sendPasswordResetEmail
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs,
+  serverTimestamp, runTransaction
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ==================== FIREBASE CONFIG ====================
+// TODO: Замените на свой конфиг из Firebase Console
+// Project Settings → General → Your apps → Web app → Config
+const firebaseConfig = {
+  apiKey: "AIzaSyB6gDsBFadkThGUxVjjKC8SFI8bW5LDrQQ",
+  authDomain: "blue-rocket-aa9d5.firebaseapp.com",
+  projectId: "blue-rocket-aa9d5",
+  storageBucket: "blue-rocket-aa9d5.firebasestorage.app",
+  messagingSenderId: "841718771195",
+  appId: "1:841718771195:web:5ad2a3044d7638bf3def5e"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Экспортируем в window, чтобы обычные скрипты могли пользоваться
+window.fb = {
+  auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged, sendPasswordResetEmail,
+  doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs,
+  serverTimestamp, runTransaction
+};
+window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<script>
+/* ==================== SEASON HELPERS ==================== */
+// Сезон = половина месяца. ID вида "2026-04-1" (первая половина апреля) или "2026-04-2"
+function currentSeason(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const half = date.getDate() < 15 ? 1 : 2;
+  return `${y}-${m}-${half}`;
+}
+
+function seasonEndDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  if (date.getDate() < 15) {
+    // Заканчивается 15-го в 00:00
+    return new Date(y, m, 15, 0, 0, 0);
+  } else {
+    // Заканчивается 1-го следующего месяца в 00:00
+    return new Date(y, m + 1, 1, 0, 0, 0);
+  }
+}
+
+function formatCountdown(ms) {
+  if (ms <= 0) return 'завершён';
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `${days}д ${hours}ч`;
+  if (hours > 0) return `${hours}ч ${mins}м`;
+  return `${mins}м`;
+}
+
+function formatSeasonName(id) {
+  const [y, m, half] = id.split('-');
+  const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const monName = months[parseInt(m, 10) - 1];
+  return `${monName} ${half === '1' ? '1-15' : '15-31'} ${y}`;
+}
+
+/* ==================== STATE ==================== */
+let currentUser = null;     // Firebase user object
+let currentProfile = null;  // { nick, phone, email }
+let game = null;
+let countdownTimer = null;
+
+/* ==================== UI ==================== */
+function $(id) { return document.getElementById(id); }
+
+function showScreen(name) {
+  ['boot', 'login', 'register', 'menu', 'over'].forEach(s => {
+    const el = $('screen-' + s);
+    if (el) el.classList.toggle('hidden', s !== name);
+  });
+  $('hud').classList.toggle('hidden', name !== 'playing');
+  if (name === 'playing') {
+    ['boot', 'login', 'register', 'menu', 'over'].forEach(s => {
+      const el = $('screen-' + s);
+      if (el) el.classList.add('hidden');
+    });
+  }
+}
+window.showScreen = showScreen;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderLeaderboard(list, containerId) {
+  const el = $(containerId);
+  if (!list || !list.length) {
+    el.innerHTML = '<div class="empty">Пока нет рекордов в этом сезоне. Стань первым!</div>';
+    return;
+  }
+  el.innerHTML = list.slice(0, 10).map((row, i) => {
+    const rank = i + 1;
+    const isMe = currentUser && row.uid === currentUser.uid;
+    const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+    const rowClass = (rank === 1 ? 'top1 ' : '') + (isMe ? 'me' : '');
+    return `<div class="leader-row ${rowClass}">
+      <div class="rank ${rankClass}">${rank}</div>
+      <div class="nick">${escapeHtml(row.nick)}</div>
+      <div class="pts">${row.bestScore}</div>
+    </div>`;
+  }).join('');
+}
+
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  const update = () => {
+    const end = seasonEndDate();
+    const ms = end.getTime() - Date.now();
+    $('seasonCountdown').textContent = formatCountdown(ms);
+    // Если сезон истёк — перечитываем лидерборд (у нас появится новый)
+    if (ms <= 0 && currentUser) {
+      setTimeout(() => showMenu(), 1000);
+    }
+  };
+  update();
+  countdownTimer = setInterval(update, 60 * 1000);
+}
+
+/* ==================== AUTH ==================== */
+async function doRegister() {
+  const btn = $('regBtn');
+  const err = $('regError');
+  err.textContent = '';
+  btn.disabled = true;
+
+  const nick = $('regNick').value.trim();
+  const email = $('regEmail').value.trim();
+  const pass = $('regPass').value;
+  const phone = $('regPhone').value.trim();
+
+  try {
+    if (nick.length < 2 || nick.length > 16) throw new Error('Ник от 2 до 16 символов');
+    if (!/^[\w\u0400-\u04FF\- ]+$/.test(nick)) throw new Error('В нике: буквы, цифры, -, _ и пробелы');
+    if (!email.includes('@')) throw new Error('Некорректный email');
+    if (pass.length < 6) throw new Error('Пароль минимум 6 символов');
+
+    // Проверяем уникальность ника через транзакцию
+    const nickKey = nick.toLowerCase();
+    const nickRef = window.fb.doc(window.fb.db, 'nicks', nickKey);
+    const nickSnap = await window.fb.getDoc(nickRef);
+    if (nickSnap.exists()) throw new Error('Этот ник уже занят');
+
+    // Создаём пользователя в Auth
+    const cred = await window.fb.createUserWithEmailAndPassword(window.fb.auth, email, pass);
+    const uid = cred.user.uid;
+
+    // Атомарно резервируем ник + создаём профиль
+    await window.fb.runTransaction(window.fb.db, async (tx) => {
+      const freshNick = await tx.get(nickRef);
+      if (freshNick.exists()) throw new Error('Этот ник только что занят');
+      tx.set(nickRef, { uid, nick, createdAt: window.fb.serverTimestamp() });
+      tx.set(window.fb.doc(window.fb.db, 'users', uid), {
+        nick, phone: phone || null, email,
+        createdAt: window.fb.serverTimestamp()
+      });
+    });
+  } catch (e) {
+    console.error(e);
+    let msg = e.message || 'Ошибка регистрации';
+    if (e.code === 'auth/email-already-in-use') msg = 'Этот email уже зарегистрирован';
+    else if (e.code === 'auth/invalid-email') msg = 'Некорректный email';
+    else if (e.code === 'auth/weak-password') msg = 'Пароль слишком простой';
+    err.textContent = msg;
+  } finally {
+    btn.disabled = false;
+  }
+}
+window.doRegister = doRegister;
+
+async function doLogin() {
+  const btn = $('loginBtn');
+  const err = $('loginError');
+  err.textContent = '';
+  btn.disabled = true;
+
+  const email = $('loginEmail').value.trim();
+  const pass = $('loginPass').value;
+
+  try {
+    if (!email || !pass) throw new Error('Введите email и пароль');
+    await window.fb.signInWithEmailAndPassword(window.fb.auth, email, pass);
+  } catch (e) {
+    console.error(e);
+    let msg = 'Не удалось войти';
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') {
+      msg = 'Неверный email или пароль';
+    } else if (e.code === 'auth/too-many-requests') {
+      msg = 'Слишком много попыток. Попробуйте позже';
+    } else if (e.code === 'auth/invalid-email') {
+      msg = 'Некорректный email';
+    }
+    err.textContent = msg;
+  } finally {
+    btn.disabled = false;
+  }
+}
+window.doLogin = doLogin;
+
+async function doLogout() {
+  try {
+    await window.fb.signOut(window.fb.auth);
+  } catch (e) { console.error(e); }
+}
+window.doLogout = doLogout;
+
+async function doResetPassword() {
+  const email = $('loginEmail').value.trim();
+  const err = $('loginError');
+  if (!email) {
+    err.textContent = 'Введите email в поле выше';
+    return;
+  }
+  try {
+    await window.fb.sendPasswordResetEmail(window.fb.auth, email);
+    err.style.color = '#4af2ff';
+    err.textContent = 'Письмо отправлено, проверьте почту';
+    setTimeout(() => { err.style.color = ''; err.textContent = ''; }, 5000);
+  } catch (e) {
+    err.textContent = 'Не удалось отправить письмо';
+  }
+}
+window.doResetPassword = doResetPassword;
+
+/* ==================== LEADERBOARD (Firestore) ==================== */
+async function getTopScores(seasonId, topN = 10) {
+  const colRef = window.fb.collection(window.fb.db, 'seasons', seasonId, 'scores');
+  const q = window.fb.query(colRef, window.fb.orderBy('bestScore', 'desc'), window.fb.limit(topN));
+  const snap = await window.fb.getDocs(q);
+  const rows = [];
+  snap.forEach(d => rows.push({ uid: d.id, ...d.data() }));
+  return rows;
+}
+
+async function saveMyScore(score) {
+  if (!currentUser || !currentProfile) return { saved: false };
+  const seasonId = currentSeason();
+  const ref = window.fb.doc(window.fb.db, 'seasons', seasonId, 'scores', currentUser.uid);
+
+  try {
+    const result = await window.fb.runTransaction(window.fb.db, async (tx) => {
+      const snap = await tx.get(ref);
+      const prev = snap.exists() ? (snap.data().bestScore || 0) : 0;
+      if (score <= prev) return { saved: false, isBest: false, prev };
+      tx.set(ref, {
+        nick: currentProfile.nick,
+        bestScore: score,
+        updatedAt: window.fb.serverTimestamp()
+      });
+      return { saved: true, isBest: true, prev };
+    });
+    return result;
+  } catch (e) {
+    console.error('saveScore failed', e);
+    return { saved: false, error: e.message };
+  }
+}
+
+/* ==================== SCREENS ==================== */
+async function showMenu() {
+  showScreen('menu');
+  $('welcomeNick').textContent = currentProfile ? currentProfile.nick : '—';
+  const seasonId = currentSeason();
+  $('seasonName').textContent = formatSeasonName(seasonId);
+  startCountdown();
+  try {
+    const top = await getTopScores(seasonId, 10);
+    renderLeaderboard(top, 'leaderList');
+  } catch (e) {
+    $('leaderList').innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
+    console.error(e);
+  }
+}
+window.showMenu = showMenu;
+
+async function showGameOver(score) {
+  showScreen('over');
+  $('finalScore').textContent = score;
+  $('highscoreBadge').textContent = '';
+  $('saveStatus').textContent = 'Сохраняем результат...';
+  $('leaderListOver').innerHTML = '<div class="loading">Загрузка...</div>';
+
+  const result = await saveMyScore(score);
+  if (result.error) {
+    $('saveStatus').textContent = 'Не удалось сохранить (проверьте интернет)';
+  } else if (result.isBest) {
+    $('saveStatus').textContent = result.prev > 0
+      ? `Предыдущий рекорд сезона: ${result.prev} — побит!`
+      : 'Первый результат в сезоне записан';
+    $('highscoreBadge').textContent = '★ НОВЫЙ РЕКОРД СЕЗОНА ★';
+  } else {
+    $('saveStatus').textContent = `Лучший результат сезона: ${result.prev}`;
+  }
+
+  try {
+    const top = await getTopScores(currentSeason(), 10);
+    renderLeaderboard(top, 'leaderListOver');
+  } catch (e) {
+    $('leaderListOver').innerHTML = '<div class="empty">Не удалось загрузить таблицу</div>';
+  }
+}
+
+/* ==================== BOOT ==================== */
+window.addEventListener('firebase-ready', () => {
+  window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      // Загружаем профиль (ник)
+      try {
+        const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'users', user.uid));
+        if (snap.exists()) {
+          currentProfile = snap.data();
+          await showMenu();
+        } else {
+          // Это может случиться, если регистрация оборвалась между Auth и Firestore
+          showScreen('register');
+          $('regError').textContent = 'Профиль не найден, заполните ник снова';
+        }
+      } catch (e) {
+        console.error(e);
+        showScreen('login');
+        $('loginError').textContent = 'Ошибка загрузки профиля';
+      }
+    } else {
+      currentUser = null;
+      currentProfile = null;
+      if (game) { game.running = false; Sound.stopEngine(); }
+      showScreen('login');
+    }
+  });
+});
+
+/* ==================== SOUND ==================== */
+const Sound = {
+  ctx: null, enabled: true, masterGain: null, musicNodes: null,
+  musicNextTime: 0, musicStep: 0, musicTimer: null,
+  init() {
+    if (this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.3;
+      this.masterGain.connect(this.ctx.destination);
+    } catch (e) { this.enabled = false; }
+  },
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  beep(freq, dur, type = 'sine', vol = 0.3, slide = 0) {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), now + dur);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    osc.connect(gain).connect(this.masterGain);
+    osc.start(now); osc.stop(now + dur);
+  },
+  collect() { this.beep(880, 0.08, 'square', 0.15); setTimeout(() => this.beep(1320, 0.1, 'square', 0.15), 40); },
+  shield() { this.beep(440, 0.15, 'sine', 0.25); setTimeout(() => this.beep(660, 0.15, 'sine', 0.25), 80); setTimeout(() => this.beep(880, 0.2, 'sine', 0.25), 160); },
+  boost() { this.beep(220, 0.3, 'sawtooth', 0.2, 600); },
+  explode() {
+    if (!this.enabled || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const bufferSize = this.ctx.sampleRate * 0.5;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 800;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    noise.connect(filter).connect(gain).connect(this.masterGain);
+    noise.start(now);
+  },
+  shieldBreak() { this.beep(600, 0.2, 'triangle', 0.25, -400); },
+  startEngine() {
+    if (!this.enabled || !this.ctx || this.musicNodes) return;
+    const now = this.ctx.currentTime;
+    const rumble = this.ctx.createOscillator();
+    rumble.type = 'sawtooth'; rumble.frequency.value = 55;
+    const rumbleGain = this.ctx.createGain(); rumbleGain.gain.value = 0.05;
+    const rumbleFilter = this.ctx.createBiquadFilter();
+    rumbleFilter.type = 'lowpass'; rumbleFilter.frequency.value = 180;
+    rumble.connect(rumbleFilter).connect(rumbleGain).connect(this.masterGain);
+    rumble.start(now);
+
+    const musicGain = this.ctx.createGain();
+    musicGain.gain.value = 0.15;
+    musicGain.connect(this.masterGain);
+
+    const scale = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33, 659.25];
+    const pattern = [5,7,8,7, 5,4,5,7, 4,5,7,5, 3,2,3,4, 5,7,8,7, 8,7,5,4, 3,4,5,3, 2,0,2,3];
+    const bass = [0,0,2,2,3,3,4,4];
+    const stepDur = 0.28;
+
+    this.musicStep = 0;
+    this.musicNextTime = now + 0.1;
+    this.musicNodes = { rumble, rumbleGain, musicGain };
+
+    const scheduleMusic = () => {
+      if (!this.musicNodes) return;
+      const lookAhead = 0.5;
+      while (this.musicNextTime < this.ctx.currentTime + lookAhead) {
+        const step = this.musicStep;
+        const t = this.musicNextTime;
+        const noteIdx = pattern[step % pattern.length];
+        const freq = scale[noteIdx];
+        const mOsc = this.ctx.createOscillator();
+        mOsc.type = 'triangle';
+        mOsc.frequency.setValueAtTime(freq, t);
+        const mGain = this.ctx.createGain();
+        mGain.gain.setValueAtTime(0, t);
+        mGain.gain.linearRampToValueAtTime(0.5, t + 0.02);
+        mGain.gain.exponentialRampToValueAtTime(0.001, t + stepDur * 0.9);
+        mOsc.connect(mGain).connect(musicGain);
+        mOsc.start(t); mOsc.stop(t + stepDur);
+
+        if (step % 4 === 0) {
+          const bIdx = bass[(Math.floor(step / 4)) % bass.length];
+          const bFreq = scale[bIdx] / 2;
+          const bOsc = this.ctx.createOscillator();
+          bOsc.type = 'sine';
+          bOsc.frequency.setValueAtTime(bFreq, t);
+          const bGain = this.ctx.createGain();
+          bGain.gain.setValueAtTime(0, t);
+          bGain.gain.linearRampToValueAtTime(0.45, t + 0.05);
+          bGain.gain.exponentialRampToValueAtTime(0.001, t + stepDur * 3.8);
+          bOsc.connect(bGain).connect(musicGain);
+          bOsc.start(t); bOsc.stop(t + stepDur * 4);
+        }
+
+        if (step % 2 === 1) {
+          const bufSize = this.ctx.sampleRate * 0.05;
+          const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 3);
+          const hat = this.ctx.createBufferSource();
+          hat.buffer = buf;
+          const hatFilter = this.ctx.createBiquadFilter();
+          hatFilter.type = 'highpass'; hatFilter.frequency.value = 6000;
+          const hatGain = this.ctx.createGain();
+          hatGain.gain.setValueAtTime(0.08, t);
+          hat.connect(hatFilter).connect(hatGain).connect(musicGain);
+          hat.start(t);
+        }
+        this.musicNextTime += stepDur;
+        this.musicStep++;
+      }
+      this.musicTimer = setTimeout(scheduleMusic, 100);
+    };
+    scheduleMusic();
+  },
+  stopEngine() {
+    if (!this.musicNodes) return;
+    if (this.musicTimer) { clearTimeout(this.musicTimer); this.musicTimer = null; }
+    try {
+      const now = this.ctx.currentTime;
+      this.musicNodes.rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      this.musicNodes.rumble.stop(now + 0.35);
+      this.musicNodes.musicGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    } catch (e) {}
+    this.musicNodes = null;
+  },
+  toggle() {
+    this.enabled = !this.enabled;
+    if (!this.enabled) { this.stopEngine(); if (this.masterGain) this.masterGain.gain.value = 0; }
+    else if (this.masterGain) this.masterGain.gain.value = 0.3;
+    return this.enabled;
+  }
+};
+
+function toggleSound() {
+  Sound.init();
+  const on = Sound.toggle();
+  $('soundBtn').textContent = on ? '🔊' : '🔇';
+  if (on && game && game.running) Sound.startEngine();
+}
+window.toggleSound = toggleSound;
+
+function vibrate(pattern) {
+  if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
+}
+
+/* ==================== GAME ==================== */
+const canvas = $('canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resizeCanvas() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function createGame() {
+  return {
+    running: false, score: 0, altitude: 0, time: 0, targetX: W / 2,
+    rocket: { x: W / 2, y: H - 140, vx: 0, tilt: 0, width: 36, height: 56, flameT: 0 },
+    stars: [], collectibles: [], meteors: [], powerups: [], particles: [],
+    spawnTimer: 0, meteorTimer: 0, powerupTimer: 5,
+    difficulty: 1, scrollSpeed: 2.5,
+    shieldTime: 0, shieldMax: 6, boostTime: 0, boostMax: 4, shieldRing: 0,
+    initBg() {
+      for (let i = 0; i < 80; i++) this.stars.push({
+        x: Math.random() * W, y: Math.random() * H,
+        r: Math.random() * 1.5 + 0.3,
+        layer: Math.random() < 0.5 ? 1 : (Math.random() < 0.7 ? 2 : 3),
+        tw: Math.random() * Math.PI * 2
+      });
+    }
+  };
+}
+
+function pointerMove(e) {
+  if (!game || !game.running) return;
+  const t = e.touches ? e.touches[0] : e;
+  if (!t) return;
+  const rect = canvas.getBoundingClientRect();
+  game.targetX = t.clientX - rect.left;
+  e.preventDefault();
+}
+canvas.addEventListener('touchstart', pointerMove, { passive: false });
+canvas.addEventListener('touchmove', pointerMove, { passive: false });
+canvas.addEventListener('mousedown', (e) => { canvas._md = true; pointerMove(e); });
+canvas.addEventListener('mousemove', (e) => { if (canvas._md) pointerMove(e); });
+canvas.addEventListener('mouseup', () => { canvas._md = false; });
+canvas.addEventListener('mouseleave', () => { canvas._md = false; });
+
+function startGame() {
+  if (!currentUser || !currentProfile) return;
+  resizeCanvas();
+  Sound.init(); Sound.resume();
+  game = createGame();
+  game.initBg();
+  game.running = true;
+  showScreen('playing');
+  updatePowerupUI();
+  Sound.startEngine();
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+}
+window.startGame = startGame;
+
+let lastFrame = 0;
+function loop(ts) {
+  if (!game || !game.running) return;
+  const dt = Math.min(0.05, (ts - lastFrame) / 1000);
+  lastFrame = ts;
+  update(dt); render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  game.time += dt;
+  game.difficulty = 1 + game.time * 0.04;
+  game.scrollSpeed = 2.5 + game.time * 0.05;
+  const boostMult = game.boostTime > 0 ? 2.2 : 1;
+  const effScroll = game.scrollSpeed * boostMult;
+
+  if (game.shieldTime > 0) {
+    game.shieldTime = Math.max(0, game.shieldTime - dt);
+    game.shieldRing += dt * 4;
+    if (game.shieldTime === 0) { Sound.shieldBreak(); vibrate(20); }
+  }
+  if (game.boostTime > 0) game.boostTime = Math.max(0, game.boostTime - dt);
+  updatePowerupUI();
+
+  const r = game.rocket;
+  const dx = game.targetX - r.x;
+  r.vx += dx * 0.012; r.vx *= 0.85; r.x += r.vx;
+  if (r.x < r.width / 2) { r.x = r.width / 2; r.vx = 0; }
+  if (r.x > W - r.width / 2) { r.x = W - r.width / 2; r.vx = 0; }
+  r.tilt += (r.vx * 0.04 - r.tilt) * 0.2;
+  r.tilt = Math.max(-0.5, Math.min(0.5, r.tilt));
+  r.flameT += dt * 20 * boostMult;
+
+  game.altitude += effScroll * dt * 60 * 0.3;
+
+  game.stars.forEach(s => {
+    s.y += effScroll * s.layer * 0.5;
+    s.tw += dt * 3;
+    if (s.y > H) { s.y = -5; s.x = Math.random() * W; }
+  });
+
+  if (game.boostTime > 0 && Math.random() < 0.5) {
+    game.particles.push({
+      x: r.x + (Math.random() - 0.5) * 14, y: r.y + 30,
+      vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 2,
+      life: 0.4, color: Math.random() < 0.5 ? '#ffd700' : '#4af2ff',
+      r: 2 + Math.random() * 2
+    });
+  }
+
+  game.spawnTimer -= dt;
+  if (game.spawnTimer <= 0) {
+    game.spawnTimer = 0.45 + Math.random() * 0.4;
+    game.collectibles.push({
+      x: 30 + Math.random() * (W - 60), y: -30, r: 14,
+      rot: 0, rotSpeed: (Math.random() - 0.5) * 4, pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  game.meteorTimer -= dt;
+  if (game.meteorTimer <= 0) {
+    game.meteorTimer = Math.max(0.35, 1.4 - game.difficulty * 0.12);
+    const size = 20 + Math.random() * 22;
+    game.meteors.push({
+      x: 30 + Math.random() * (W - 60), y: -size, r: size,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: 1 + Math.random() * 1.5 + game.difficulty * 0.3,
+      rot: Math.random() * Math.PI * 2, rotSpeed: (Math.random() - 0.5) * 2,
+      craters: genCraters(size)
+    });
+  }
+
+  game.powerupTimer -= dt;
+  if (game.powerupTimer <= 0) {
+    game.powerupTimer = 10 + Math.random() * 8;
+    game.powerups.push({
+      x: 40 + Math.random() * (W - 80), y: -30, r: 18,
+      type: Math.random() < 0.5 ? 'shield' : 'boost',
+      rot: 0, pulse: 0
+    });
+  }
+
+  game.collectibles = game.collectibles.filter(c => {
+    c.y += effScroll * 1.5; c.rot += c.rotSpeed * dt; c.pulse += dt * 5;
+    if (circHit(c.x, c.y, c.r, r.x, r.y - 10, 20)) {
+      game.score += game.boostTime > 0 ? 20 : 10;
+      spawnBurst(c.x, c.y, '#ffd700', 10); Sound.collect(); return false;
+    }
+    return c.y < H + 40;
+  });
+
+  game.powerups = game.powerups.filter(p => {
+    p.y += effScroll * 1.3; p.rot += dt * 2; p.pulse += dt * 4;
+    if (circHit(p.x, p.y, p.r, r.x, r.y - 10, 22)) {
+      if (p.type === 'shield') {
+        game.shieldTime = game.shieldMax;
+        spawnBurst(p.x, p.y, '#4af2ff', 20); Sound.shield(); vibrate(30);
+      } else {
+        game.boostTime = game.boostMax;
+        spawnBurst(p.x, p.y, '#ffd700', 20); Sound.boost(); vibrate(30);
+      }
+      return false;
+    }
+    return p.y < H + 40;
+  });
+
+  game.meteors = game.meteors.filter(m => {
+    m.x += m.vx; m.y += m.vy + effScroll * 0.6; m.rot += m.rotSpeed * dt;
+    if (m.x < m.r || m.x > W - m.r) m.vx *= -1;
+    if (circHit(m.x, m.y, m.r * 0.85, r.x, r.y, 18)) {
+      if (game.shieldTime > 0) {
+        game.shieldTime = 0;
+        spawnBurst(m.x, m.y, '#4af2ff', 25); spawnBurst(m.x, m.y, '#ffffff', 15);
+        Sound.shieldBreak(); vibrate([40, 50, 40]);
+        return false;
+      }
+      gameOver();
+      spawnBurst(r.x, r.y, '#ff6b6b', 30); spawnBurst(r.x, r.y, '#ffd700', 20);
+      Sound.explode(); vibrate([80, 40, 120, 40, 200]);
+      return false;
+    }
+    return m.y < H + 60;
+  });
+
+  game.particles = game.particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= dt;
+    return p.life > 0;
+  });
+
+  $('scoreVal').textContent = game.score;
+  $('altVal').textContent = Math.floor(game.altitude) + 'м';
+}
+
+function updatePowerupUI() {
+  if (!game) return;
+  const si = $('shieldInd'), bi = $('boostInd');
+  if (game.shieldTime > 0) {
+    si.classList.remove('hidden');
+    $('shieldBar').style.width = (game.shieldTime / game.shieldMax * 100) + '%';
+  } else si.classList.add('hidden');
+  if (game.boostTime > 0) {
+    bi.classList.remove('hidden');
+    $('boostBar').style.width = (game.boostTime / game.boostMax * 100) + '%';
+  } else bi.classList.add('hidden');
+}
+
+function genCraters(size) {
+  const n = 2 + Math.floor(Math.random() * 3);
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({
+    ox: (Math.random() - 0.5) * size * 0.6,
+    oy: (Math.random() - 0.5) * size * 0.6,
+    r: size * (0.1 + Math.random() * 0.15)
+  });
+  return out;
+}
+
+function circHit(x1, y1, r1, x2, y2, r2) {
+  const dx = x1 - x2, dy = y1 - y2;
+  return dx * dx + dy * dy < (r1 + r2) * (r1 + r2);
+}
+
+function spawnBurst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 1 + Math.random() * 4;
+    game.particles.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: 0.6 + Math.random() * 0.4, color, r: 1 + Math.random() * 2.5
+    });
+  }
+}
+
+async function gameOver() {
+  if (!game.running) return;
+  game.running = false;
+  Sound.stopEngine();
+  const finalScore = game.score + Math.floor(game.altitude * 0.2);
+  await showGameOver(finalScore);
+}
+
+function render() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0a0e27'); grad.addColorStop(0.5, '#131a3f'); grad.addColorStop(1, '#0a0e27');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+  const neb = ctx.createRadialGradient(W * 0.2, H * 0.3, 0, W * 0.2, H * 0.3, W * 0.6);
+  neb.addColorStop(0, 'rgba(107, 156, 255, 0.08)'); neb.addColorStop(1, 'rgba(107, 156, 255, 0)');
+  ctx.fillStyle = neb; ctx.fillRect(0, 0, W, H);
+  const neb2 = ctx.createRadialGradient(W * 0.8, H * 0.7, 0, W * 0.8, H * 0.7, W * 0.5);
+  neb2.addColorStop(0, 'rgba(184, 92, 255, 0.08)'); neb2.addColorStop(1, 'rgba(184, 92, 255, 0)');
+  ctx.fillStyle = neb2; ctx.fillRect(0, 0, W, H);
+
+  game.stars.forEach(s => {
+    const flicker = 0.5 + 0.5 * Math.sin(s.tw);
+    ctx.fillStyle = `rgba(${220 + s.layer * 10}, ${230 + s.layer * 5}, 255, ${0.3 + flicker * 0.5})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r * s.layer, 0, Math.PI * 2); ctx.fill();
+  });
+
+  game.collectibles.forEach(c => drawStar(c.x, c.y, c.r + Math.sin(c.pulse) * 2, c.rot, '#ffd700', '#ff9500'));
+  game.powerups.forEach(p => drawPowerup(p));
+  game.meteors.forEach(m => drawMeteor(m));
+
+  game.particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  drawRocket(game.rocket);
+
+  if (game.shieldTime > 0) {
+    const r = game.rocket;
+    const alpha = 0.5 + 0.3 * Math.sin(game.shieldRing * 2);
+    const radius = 40 + Math.sin(game.shieldRing) * 3;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#4af2ff'; ctx.lineWidth = 2;
+    ctx.shadowColor = '#4af2ff'; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(r.x, r.y, radius, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = alpha * 0.3; ctx.fillStyle = '#4af2ff'; ctx.fill();
+    if (game.shieldTime < 1.5) {
+      ctx.globalAlpha = Math.sin(game.shieldRing * 8) * 0.3 + 0.3;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function drawStar(x, y, r, rot, fill, stroke) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    const rad = i % 2 === 0 ? r : r * 0.45;
+    ctx.lineTo(Math.cos(angle) * rad, Math.sin(angle) * rad);
+  }
+  ctx.closePath();
+  ctx.shadowColor = fill; ctx.shadowBlur = 15;
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+}
+
+function drawMeteor(m) {
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
+  ctx.globalAlpha = 0.3;
+  const trail = ctx.createLinearGradient(0, -m.r * 2.5, 0, 0);
+  trail.addColorStop(0, 'rgba(255, 120, 60, 0)'); trail.addColorStop(1, 'rgba(255, 120, 60, 0.6)');
+  ctx.fillStyle = trail;
+  ctx.beginPath(); ctx.moveTo(-m.r * 0.6, 0); ctx.lineTo(0, -m.r * 2.5); ctx.lineTo(m.r * 0.6, 0); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const g = ctx.createRadialGradient(-m.r * 0.3, -m.r * 0.3, 0, 0, 0, m.r);
+  g.addColorStop(0, '#8a6f5c'); g.addColorStop(0.6, '#5a3f2e'); g.addColorStop(1, '#2e1a12');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.fill();
+
+  m.craters.forEach(c => {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.beginPath(); ctx.arc(c.ox, c.oy, c.r, 0, Math.PI * 2); ctx.fill();
+  });
+
+  ctx.strokeStyle = 'rgba(255, 150, 80, 0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+function drawPowerup(p) {
+  ctx.save(); ctx.translate(p.x, p.y);
+  const scale = 1 + Math.sin(p.pulse) * 0.1;
+  ctx.scale(scale, scale); ctx.rotate(p.rot);
+  if (p.type === 'shield') {
+    ctx.shadowColor = '#4af2ff'; ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(74, 242, 255, 0.3)';
+    ctx.strokeStyle = '#4af2ff'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const x = Math.cos(a) * p.r; const y = Math.sin(a) * p.r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#4af2ff';
+    ctx.beginPath();
+    ctx.moveTo(0, -p.r * 0.5);
+    ctx.lineTo(p.r * 0.4, -p.r * 0.2);
+    ctx.lineTo(p.r * 0.4, p.r * 0.2);
+    ctx.lineTo(0, p.r * 0.5);
+    ctx.lineTo(-p.r * 0.4, p.r * 0.2);
+    ctx.lineTo(-p.r * 0.4, -p.r * 0.2);
+    ctx.closePath(); ctx.fill();
+  } else {
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -p.r); ctx.lineTo(p.r, 0);
+    ctx.lineTo(0, p.r); ctx.lineTo(-p.r, 0); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.moveTo(-p.r * 0.15, -p.r * 0.5);
+    ctx.lineTo(p.r * 0.25, -p.r * 0.05);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(p.r * 0.15, p.r * 0.5);
+    ctx.lineTo(-p.r * 0.25, p.r * 0.05);
+    ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawRocket(r) {
+  ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.tilt);
+  const flameH = 22 + Math.sin(r.flameT) * 6;
+  const flameW = 10;
+  const fg = ctx.createLinearGradient(0, r.height / 2, 0, r.height / 2 + flameH);
+  fg.addColorStop(0, '#fff8c0'); fg.addColorStop(0.4, '#ff9500'); fg.addColorStop(1, 'rgba(255, 60, 0, 0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(-flameW, r.height / 2 - 2);
+  ctx.quadraticCurveTo(0, r.height / 2 + flameH * 1.4, flameW, r.height / 2 - 2);
+  ctx.closePath(); ctx.fill();
+
+  const fg2 = ctx.createLinearGradient(0, r.height / 2, 0, r.height / 2 + flameH * 0.6);
+  fg2.addColorStop(0, '#ffffff'); fg2.addColorStop(1, 'rgba(255, 255, 200, 0)');
+  ctx.fillStyle = fg2;
+  ctx.beginPath();
+  ctx.moveTo(-flameW * 0.5, r.height / 2 - 2);
+  ctx.quadraticCurveTo(0, r.height / 2 + flameH * 0.8, flameW * 0.5, r.height / 2 - 2);
+  ctx.closePath(); ctx.fill();
+
+  ctx.shadowColor = '#4af2ff'; ctx.shadowBlur = 20;
+
+  ctx.fillStyle = '#2a5aa8';
+  ctx.beginPath();
+  ctx.moveTo(-r.width / 2, r.height / 2);
+  ctx.lineTo(-r.width / 2 - 8, r.height / 2 + 4);
+  ctx.lineTo(-r.width / 2, r.height / 2 - 14);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(r.width / 2, r.height / 2);
+  ctx.lineTo(r.width / 2 + 8, r.height / 2 + 4);
+  ctx.lineTo(r.width / 2, r.height / 2 - 14);
+  ctx.closePath(); ctx.fill();
+
+  const bg = ctx.createLinearGradient(-r.width / 2, 0, r.width / 2, 0);
+  bg.addColorStop(0, '#2a5aa8'); bg.addColorStop(0.5, '#6b9cff'); bg.addColorStop(1, '#2a5aa8');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.moveTo(0, -r.height / 2);
+  ctx.quadraticCurveTo(r.width / 2, -r.height / 4, r.width / 2, r.height / 4);
+  ctx.lineTo(r.width / 2, r.height / 2);
+  ctx.lineTo(-r.width / 2, r.height / 2);
+  ctx.lineTo(-r.width / 2, r.height / 4);
+  ctx.quadraticCurveTo(-r.width / 2, -r.height / 4, 0, -r.height / 2);
+  ctx.closePath(); ctx.fill();
+
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#4af2ff';
+  ctx.beginPath();
+  ctx.moveTo(0, -r.height / 2);
+  ctx.quadraticCurveTo(r.width / 3, -r.height / 4, r.width / 3, 0);
+  ctx.lineTo(-r.width / 3, 0);
+  ctx.quadraticCurveTo(-r.width / 3, -r.height / 4, 0, -r.height / 2);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = '#0a0e27';
+  ctx.beginPath(); ctx.arc(0, -2, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(74, 242, 255, 0.7)';
+  ctx.beginPath(); ctx.arc(-2, -4, 3, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(-r.width / 2 + 2, 10, r.width - 4, 3);
+  ctx.restore();
+}
+
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => {
+  if (game && game.running) e.preventDefault();
+}, { passive: false });
+</script>
+
+</body>
+</html>
