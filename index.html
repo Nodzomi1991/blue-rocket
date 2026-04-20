@@ -627,32 +627,30 @@ async function doRegister() {
     if (!email.includes('@')) throw new Error('Некорректный email');
     if (pass.length < 6) throw new Error('Пароль минимум 6 символов');
 
-    // Проверяем уникальность ника через транзакцию
-    const nickKey = nick.toLowerCase();
-    const nickRef = window.fb.doc(window.fb.db, 'nicks', nickKey);
-    const nickSnap = await window.fb.getDoc(nickRef);
-    if (nickSnap.exists()) throw new Error('Этот ник уже занят');
-
-    // Создаём пользователя в Auth
+    // Создаём пользователя в Auth первым
     const cred = await window.fb.createUserWithEmailAndPassword(window.fb.auth, email, pass);
     const uid = cred.user.uid;
 
-    // Атомарно резервируем ник + создаём профиль
-    await window.fb.runTransaction(window.fb.db, async (tx) => {
-      const freshNick = await tx.get(nickRef);
-      if (freshNick.exists()) throw new Error('Этот ник только что занят');
-      tx.set(nickRef, { uid, nick, createdAt: window.fb.serverTimestamp() });
-      tx.set(window.fb.doc(window.fb.db, 'users', uid), {
-        nick, phone: phone || null, email,
-        createdAt: window.fb.serverTimestamp()
-      });
+    // Затем создаём профиль в Firestore (без транзакции)
+    const nickKey = nick.toLowerCase();
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), {
+      nick, phone: phone || null, email,
+      createdAt: window.fb.serverTimestamp()
     });
+
+    // И резервируем ник
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'nicks', nickKey), {
+      uid, nick,
+      createdAt: window.fb.serverTimestamp()
+    });
+
   } catch (e) {
     console.error(e);
     let msg = e.message || 'Ошибка регистрации';
     if (e.code === 'auth/email-already-in-use') msg = 'Этот email уже зарегистрирован';
     else if (e.code === 'auth/invalid-email') msg = 'Некорректный email';
     else if (e.code === 'auth/weak-password') msg = 'Пароль слишком простой';
+    else if (e.code === 'permission-denied') msg = 'Ошибка доступа (проверьте правила Firestore)';
     err.textContent = msg;
   } finally {
     btn.disabled = false;
@@ -797,21 +795,30 @@ window.addEventListener('firebase-ready', () => {
   window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
     if (user) {
       currentUser = user;
-      // Загружаем профиль (ник)
-      try {
-        const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'users', user.uid));
-        if (snap.exists()) {
-          currentProfile = snap.data();
-          await showMenu();
-        } else {
-          // Это может случиться, если регистрация оборвалась между Auth и Firestore
-          showScreen('register');
-          $('regError').textContent = 'Профиль не найден, заполните ник снова';
+      // Загружаем профиль (ник) с повторными попытками
+      // (профиль может создаваться параллельно при регистрации)
+      let profileFound = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'users', user.uid));
+          if (snap.exists()) {
+            currentProfile = snap.data();
+            profileFound = true;
+            break;
+          }
+        } catch (e) {
+          console.error('Profile fetch error:', e);
         }
-      } catch (e) {
-        console.error(e);
-        showScreen('login');
-        $('loginError').textContent = 'Ошибка загрузки профиля';
+        // Ждём 800мс перед следующей попыткой (регистрация в процессе)
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      if (profileFound) {
+        await showMenu();
+      } else {
+        // Профиль не найден после 5 попыток
+        showScreen('register');
+        $('regError').textContent = 'Профиль не найден. Проверьте интернет и попробуйте снова.';
       }
     } else {
       currentUser = null;
