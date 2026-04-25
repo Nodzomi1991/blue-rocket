@@ -1377,25 +1377,47 @@ function drawStar(x, y, r, rot, fill, stroke) {
 
 function drawMeteor(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
-  ctx.globalAlpha = 0.3;
-  const trail = ctx.createLinearGradient(0, -m.r * 2.5, 0, 0);
-  trail.addColorStop(0, 'rgba(255, 120, 60, 0)'); trail.addColorStop(1, 'rgba(255, 120, 60, 0.6)');
-  ctx.fillStyle = trail;
-  ctx.beginPath(); ctx.moveTo(-m.r * 0.6, 0); ctx.lineTo(0, -m.r * 2.5); ctx.lineTo(m.r * 0.6, 0); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 1;
-
-  const g = ctx.createRadialGradient(-m.r * 0.3, -m.r * 0.3, 0, 0, 0, m.r);
-  g.addColorStop(0, '#8a6f5c'); g.addColorStop(0.6, '#5a3f2e'); g.addColorStop(1, '#2e1a12');
+  
+  // Основное тело - светло-серый метеорит
+  const g = ctx.createRadialGradient(-m.r * 0.2, -m.r * 0.2, 0, 0, 0, m.r);
+  g.addColorStop(0, '#d4d0cc'); // Светлый серый (освещённая сторона)
+  g.addColorStop(0.5, '#a8a3a0');
+  g.addColorStop(1, '#7a7571'); // Тёмнее на краю
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.fill();
-
-  m.craters.forEach(c => {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath(); ctx.arc(c.ox, c.oy, c.r, 0, Math.PI * 2); ctx.fill();
-  });
-
-  ctx.strokeStyle = 'rgba(255, 150, 80, 0.3)'; ctx.lineWidth = 1;
+  
+  // Неровные края (бугры)
+  ctx.strokeStyle = '#8b8682'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.stroke();
+  
+  // Маленькие бугры на краю для текстуры
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const x = Math.cos(angle) * m.r * 1.15;
+    const y = Math.sin(angle) * m.r * 1.15;
+    ctx.fillStyle = '#a8a3a0';
+    ctx.beginPath(); ctx.arc(x, y, m.r * 0.25, 0, Math.PI * 2); ctx.fill();
+  }
+  
+  // Кратеры
+  m.craters.forEach(c => {
+    // Основная впадина
+    const craterGrad = ctx.createRadialGradient(c.ox * 0.3, c.oy * 0.3, 0, 0, 0, c.r);
+    craterGrad.addColorStop(0, '#9a9591');
+    craterGrad.addColorStop(0.6, '#7a7571');
+    craterGrad.addColorStop(1, '#5a5550');
+    ctx.fillStyle = craterGrad;
+    ctx.beginPath(); ctx.arc(c.ox, c.oy, c.r, 0, Math.PI * 2); ctx.fill();
+    
+    // Контур кратера
+    ctx.strokeStyle = '#8b8682'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(c.ox, c.oy, c.r, 0, Math.PI * 2); ctx.stroke();
+    
+    // Тень внутри кратера
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.beginPath(); ctx.arc(c.ox + c.r * 0.3, c.oy + c.r * 0.3, c.r * 0.4, 0, Math.PI * 2); ctx.fill();
+  });
+  
   ctx.restore();
 }
 
