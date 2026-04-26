@@ -376,8 +376,8 @@ letter-spacing: 1px;
   <div class="hud-box" style="display:flex;align-items:center;gap:15px;">
     <button id="soundBtn" class="sound-btn" onclick="toggleSound()">🔊</button>
     <div>
-      <div class="hud-label" id="modeLabel">♾️</div>
-      <div class="hud-value" id="livesVal">3</div>
+      <div class="hud-label" id="levelLabel">Уровень 1</div>
+      <div class="hud-value" id="livesVal">3 ❤️</div>
     </div>
   </div>
 </div>
@@ -576,6 +576,36 @@ let currentUser = null;     // Firebase user object
 let currentProfile = null;  // { nick, phone, email }
 let game = null;
 let countdownTimer = null;
+
+/* ==================== УРОВНИ ==================== */
+const LEVELS = [
+  { minScore: 0, maxScore: 700, name: 'Уровень 1', number: 1 },
+  { minScore: 700, maxScore: 1500, name: 'Уровень 2', number: 2 },
+  { minScore: 1500, maxScore: 2400, name: 'Уровень 3', number: 3 },
+  { minScore: 2400, maxScore: 3500, name: 'Уровень 4', number: 4 },
+  { minScore: 3500, maxScore: 5000, name: 'Уровень 5', number: 5 },
+  { minScore: 5000, maxScore: 6500, name: 'Уровень 6', number: 6 },
+  { minScore: 6500, maxScore: 8000, name: 'Уровень 7', number: 7 },
+  { minScore: 8000, maxScore: 9500, name: 'Уровень 8', number: 8 },
+  { minScore: 9500, maxScore: 11000, name: 'Уровень 9', number: 9 }
+];
+
+function getLevelInfo(score) {
+  for (let level of LEVELS) {
+    if (score >= level.minScore && score < level.maxScore) {
+      return level;
+    }
+  }
+  // Для уровней > 9 (каждый 1500 очков)
+  const levelNum = Math.floor((score - 11000) / 1500) + 10;
+  const minScore = 11000 + (levelNum - 10) * 1500;
+  const maxScore = minScore + 1500;
+  return { minScore, maxScore, name: `Уровень ${levelNum}`, number: levelNum };
+}
+
+function getCurrentLevel(score) {
+  return getLevelInfo(score).number;
+}
 
 /* ==================== UI ==================== */
 function $(id) { return document.getElementById(id); }
@@ -1039,6 +1069,8 @@ function createGame() {
     shieldTime: 0, shieldMax: 6, boostTime: 0, boostMax: 4, laserTime: 0, laserMax: 4, shieldRing: 0,
     lives: 3, maxLives: 3,
     gameMode: 'infinite', // 'levels' или 'infinite'
+    currentLevel: 1,
+    lifeBoostUsedThisLevel: false, // Флаг: уже ли был буст жизни в этом уровне
     initBg() {
       for (let i = 0; i < 80; i++) this.stars.push({
         x: Math.random() * W, y: Math.random() * H,
@@ -1161,9 +1193,28 @@ function update(dt) {
   game.powerupTimer -= dt;
   if (game.powerupTimer <= 0) {
     game.powerupTimer = 10 + Math.random() * 8;
+    
+    // Проверяем текущий уровень
+    const currentLevel = getCurrentLevel(game.score);
+    if (currentLevel !== game.currentLevel) {
+      game.currentLevel = currentLevel;
+      game.lifeBoostUsedThisLevel = false; // Сбрасываем флаг на новом уровне
+    }
+    
+    // Один раз за уровень - спавним сердечко для жизни
+    let powerupType = 'shield';
+    if (!game.lifeBoostUsedThisLevel && Math.random() < 0.33) {
+      powerupType = 'life';
+      game.lifeBoostUsedThisLevel = true;
+    } else if (Math.random() < 0.5) {
+      powerupType = 'shield';
+    } else {
+      powerupType = 'laser';
+    }
+    
     game.powerups.push({
       x: 40 + Math.random() * (W - 80), y: -30, r: 18,
-      type: Math.random() < 0.5 ? 'shield' : 'laser',
+      type: powerupType,
       rot: 0, pulse: 0
     });
   }
@@ -1183,7 +1234,14 @@ function update(dt) {
       if (p.type === 'shield') {
         game.shieldTime = game.shieldMax;
         spawnBurst(p.x, p.y, '#4af2ff', 20); Sound.shield(); vibrate(30);
+      } else if (p.type === 'life') {
+        // Буст жизни - сердечко
+        if (game.lives < game.maxLives) {
+          game.lives++;
+        }
+        spawnBurst(p.x, p.y, '#ff4444', 25); Sound.shield(); vibrate(30);
       } else {
+        // Лазер буст
         game.laserTime = game.laserMax;
         spawnBurst(p.x, p.y, '#ff4444', 25); Sound.boost(); vibrate(40);
       }
@@ -1247,11 +1305,10 @@ function update(dt) {
 function updatePowerupUI() {
   if (!game) return;
   
-  // Обновляем режим
-  const modeLabel = game.gameMode === 'levels' ? '🎮' : '♾️';
-  const livesText = game.gameMode === 'levels' ? game.lives + ' ❤️' : game.lives + ' ❤️';
-  if ($('modeLabel')) $('modeLabel').textContent = modeLabel;
-  if ($('livesVal')) $('livesVal').textContent = livesText;
+  // Обновляем уровень и жизни
+  const currentLevel = getCurrentLevel(game.score);
+  if ($('levelLabel')) $('levelLabel').textContent = `Уровень ${currentLevel}`;
+  if ($('livesVal')) $('livesVal').textContent = game.lives + ' ❤️';
   
   const si = $('shieldInd'), bi = $('boostInd');
   if (game.shieldTime > 0) {
@@ -1423,6 +1480,29 @@ function drawPowerup(p) {
     ctx.lineTo(-p.r * 0.4, p.r * 0.2);
     ctx.lineTo(-p.r * 0.4, -p.r * 0.2);
     ctx.closePath(); ctx.fill();
+  } else if (p.type === 'life') {
+    // Красное сердечко для жизни
+    ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(255, 51, 51, 0.3)';
+    ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 2;
+    
+    // Рисуем сердце
+    ctx.beginPath();
+    const x = 0, y = 0, r = p.r;
+    
+    // Левая и правая части сердца (два полукруга сверху)
+    ctx.arc(x - r * 0.5, y - r * 0.3, r * 0.5, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.5, y - r * 0.3, r * 0.5, 0, Math.PI * 2);
+    
+    // Нижняя часть
+    ctx.moveTo(x - r * 0.95, y - r * 0.15);
+    ctx.quadraticCurveTo(x, y + r * 0.85, x, y + r * 0.85);
+    ctx.quadraticCurveTo(x, y + r * 0.85, x + r * 0.95, y - r * 0.15);
+    ctx.closePath();
+    
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ff3333';
+    ctx.fill();
   } else {
     // Лазер буст - красный
     ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 20;
