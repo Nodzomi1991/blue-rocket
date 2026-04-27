@@ -1071,6 +1071,8 @@ function createGame() {
     gameMode: 'infinite', // 'levels' или 'infinite'
     currentLevel: 1,
     lifeBoostUsedThisLevel: false, // Флаг: уже ли был буст жизни в этом уровне
+    levelTransitionTime: 0, // Время для перехода между уровнями
+    showingLevelScreen: false, // Показываем ли экран уровня
     initBg() {
       for (let i = 0; i < 80; i++) this.stars.push({
         x: Math.random() * W, y: Math.random() * H,
@@ -1123,6 +1125,34 @@ function loop(ts) {
 }
 
 function update(dt) {
+  // Проверяем переход между уровнями
+  if (game.gameMode === 'levels') {
+    const newLevel = getCurrentLevel(game.score);
+    if (newLevel !== game.currentLevel) {
+      // Начинаем переход на новый уровень
+      game.currentLevel = newLevel;
+      game.levelTransitionTime = 2; // 2 секунды на переход
+      game.showingLevelScreen = true;
+      game.lifeBoostUsedThisLevel = false; // Сбрасываем флаг буста
+      Sound.stopEngine(); // Останавливаем звук двигателя
+      return; // Пропускаем обновление игры во время переходa
+    }
+  }
+  
+  // Обновляем время переходa
+  if (game.levelTransitionTime > 0) {
+    game.levelTransitionTime -= dt;
+    if (game.levelTransitionTime <= 0) {
+      game.showingLevelScreen = false;
+      // Сбрасываем параметры для нового уровня
+      game.time = 0; // Сбрасываем время
+      game.difficulty = 1; // Сбрасываем сложность
+      game.scrollSpeed = 2.5; // Сбрасываем скорость на начальную
+      Sound.startEngine(); // Запускаем звук двигателя
+    }
+    return; // Не обновляем игру во время переходa
+  }
+
   game.time += dt;
   game.difficulty = 1 + game.time * 0.04;
   game.scrollSpeed = 2.5 + game.time * 0.05;
@@ -1136,14 +1166,14 @@ function update(dt) {
   }
   if (game.laserTime > 0) {
     game.laserTime = Math.max(0, game.laserTime - dt);
-    // Каждый кадр стреляем красные пульки вперёд
+    // Каждый кадр стреляем яркие синие пульки из ракеты
     if (Math.random() < 0.6) {
       for (let i = 0; i < 2; i++) {
         game.bullets.push({
           x: game.rocket.x + (Math.random() - 0.5) * 10,
           y: game.rocket.y - 30,
           vy: -8 - Math.random() * 3,
-          r: 2 + Math.random() * 1.5,
+          r: 2.5 + Math.random() * 1.5,
           life: 1.5
         });
       }
@@ -1381,12 +1411,18 @@ function render() {
   game.powerups.forEach(p => drawPowerup(p));
   game.meteors.forEach(m => drawMeteor(m));
 
-  // Рисуем пули лазера
+  // Рисуем пули лазера - яркие синие светящиеся
   game.bullets.forEach(b => {
-    ctx.fillStyle = '#ff4444';
-    ctx.shadowColor = '#ff0000';
-    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#00ffff'; // Яркий циан/голубой
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 15;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+    
+    // Внутренняя светящаяся часть
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.5, 0, Math.PI * 2); ctx.fill();
   });
   ctx.shadowBlur = 0;
 
@@ -1414,9 +1450,66 @@ function render() {
     }
     ctx.restore();
   }
+  
+  // Показываем экран уровня при переходе
+  if (game.showingLevelScreen || game.levelTransitionTime > 0) {
+    // Чёрный фон с прозрачностью
+    const alpha = game.levelTransitionTime > 1 ? 1 : game.levelTransitionTime;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+    
+    // Текст "Уровень N"
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold ' + Math.floor(W * 0.15) + 'px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 20;
+    ctx.fillText(`УРОВЕНЬ ${game.currentLevel}`, W / 2, H / 2 - W * 0.1);
+    
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = Math.floor(W * 0.05) + 'px Arial';
+    ctx.fillText('Готов?', W / 2, H / 2 + W * 0.15);
+  }
+  
+  // Рисуем сердечки для жизней в углу экрана
+  const heartSize = 20;
+  const heartX = W - heartSize - 15;
+  let heartY = 20;
+  for (let i = 0; i < game.lives; i++) {
+    drawHeartSmall(heartX - i * (heartSize + 8), heartY, heartSize);
+  }
 }
 
-function drawStar(x, y, r, rot, fill, stroke) {
+function drawHeartSmall(x, y, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#ff3333';
+  ctx.shadowColor = '#ff3333';
+  ctx.shadowBlur = 8;
+  
+  // Рисуем маленькое сердечко
+  const r = size * 0.5;
+  ctx.beginPath();
+  
+  // Левая часть
+  ctx.arc(-r * 0.5, -r * 0.3, r * 0.4, 0, Math.PI * 2);
+  // Правая часть
+  ctx.arc(r * 0.5, -r * 0.3, r * 0.4, 0, Math.PI * 2);
+  
+  // Нижняя часть
+  ctx.moveTo(-r * 0.8, -r * 0.1);
+  ctx.quadraticCurveTo(0, r * 0.7, 0, r * 0.7);
+  ctx.quadraticCurveTo(0, r * 0.7, r * 0.8, -r * 0.1);
+  ctx.closePath();
+  
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
@@ -1504,15 +1597,15 @@ function drawPowerup(p) {
     ctx.shadowBlur = 0; ctx.fillStyle = '#ff3333';
     ctx.fill();
   } else {
-    // Лазер буст - красный
-    ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 20;
-    ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
-    ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2;
+    // Лазер буст - синий светящийся
+    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+    ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, -p.r); ctx.lineTo(p.r, 0);
     ctx.lineTo(0, p.r); ctx.lineTo(-p.r, 0); ctx.closePath();
     ctx.fill(); ctx.stroke();
-    ctx.shadowBlur = 0; ctx.fillStyle = '#ff4444';
+    ctx.shadowBlur = 0; ctx.fillStyle = '#00ffff';
     ctx.beginPath();
     ctx.moveTo(-p.r * 0.15, -p.r * 0.5);
     ctx.lineTo(p.r * 0.25, -p.r * 0.05);
