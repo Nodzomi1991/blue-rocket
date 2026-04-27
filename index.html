@@ -373,12 +373,8 @@ letter-spacing: 1px;
       <div class="pwr-bar"><div class="pwr-fill" id="laserBar"></div></div>
     </div>
   </div>
-  <div class="hud-box" style="display:flex;align-items:center;gap:15px;">
+  <div class="hud-box" style="display:flex;align-items:center;">
     <button id="soundBtn" class="sound-btn" onclick="toggleSound()">🔊</button>
-    <div>
-      <div class="hud-label" id="levelLabel">Уровень 1</div>
-      <div class="hud-value" id="livesVal">3 ❤️</div>
-    </div>
   </div>
 </div>
 
@@ -1482,6 +1478,13 @@ function render() {
   for (let i = 0; i < game.lives; i++) {
     drawHeartSmall(heartX - i * (heartSize + 8), heartY, heartSize);
   }
+  
+  // Текст "Уровень N" под сердечками
+  const currentLevel = getCurrentLevel(game.score);
+  ctx.fillStyle = '#4af2ff';
+  ctx.font = 'bold 12px Arial';
+  ctx.textAlign = 'right';
+  ctx.fillText(`Уровень ${currentLevel}`, W - 10, heartY + 35);
 }
 
 function drawHeartSmall(x, y, size) {
