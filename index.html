@@ -1146,12 +1146,12 @@ function update(dt) {
       game.scrollSpeed = 2.5; // Сбрасываем скорость на начальную
       Sound.startEngine(); // Запускаем звук двигателя
     }
-    return; // Не обновляем игру во время переходa
-  }
-
-  game.time += dt;
-  game.difficulty = 1 + game.time * 0.04;
-  game.scrollSpeed = 2.5 + game.time * 0.05;
+    // Не обновляем игру во время переходa, но рендерим!
+  } else {
+    // Обновляем только если не в переходе
+    game.time += dt;
+    game.difficulty = 1 + game.time * 0.04;
+    game.scrollSpeed = 2.5 + game.time * 0.05;
   const laserActive = game.laserTime > 0;
   const effScroll = game.scrollSpeed;
 
@@ -1326,6 +1326,7 @@ function update(dt) {
 
   $('scoreVal').textContent = game.score;
   $('livesVal').textContent = game.lives;
+  }  // Закрываем else блок
 }
 
 function updatePowerupUI() {
