@@ -1510,6 +1510,8 @@ function drawHeartSmall(x, y, size) {
   ctx.shadowBlur = 0;
   ctx.restore();
 }
+
+function drawStar(x, y, r, rot, fill, stroke) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
