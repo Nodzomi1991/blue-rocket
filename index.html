@@ -1528,25 +1528,195 @@ function drawStar(x, y, r, rot, fill, stroke) {
 }
 
 function drawMeteor(m) {
+  const level = getCurrentLevel(game.score);
+  
+  if (level >= 5) {
+    drawNimbusShip(m);
+  } else if (level === 4) {
+    drawCanEnemy(m);
+  } else if (level === 3) {
+    drawBrainEnemy(m);
+  } else if (level === 2) {
+    drawDroidEnemy(m);
+  } else {
+    drawMeteor1(m);
+  }
+}
+
+// Уровень 1: Оригинальный метеорит
+function drawMeteor1(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
   
-  // Основное тело - светло-серый метеорит (круглый)
   const g = ctx.createRadialGradient(-m.r * 0.2, -m.r * 0.2, 0, 0, 0, m.r);
-  g.addColorStop(0, '#d4d0cc'); // Светлый серый (освещённая сторона)
+  g.addColorStop(0, '#d4d0cc');
   g.addColorStop(0.5, '#a8a3a0');
-  g.addColorStop(1, '#7a7571'); // Тёмнее на краю
+  g.addColorStop(1, '#7a7571');
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.fill();
   
-  // Контур
   ctx.strokeStyle = '#8b8682'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.stroke();
   
-  // Кратеры (простые тени)
   m.craters.forEach(c => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath(); ctx.arc(c.ox, c.oy, c.r, 0, Math.PI * 2); ctx.fill();
   });
+  
+  ctx.restore();
+}
+
+// Уровень 2: Дроид в прозрачной оболочке
+function drawDroidEnemy(m) {
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
+  
+  // Прозрачная сфера
+  ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#64c8ff';
+  ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.stroke();
+  
+  // Дроид внутри (красный + чёрный)
+  ctx.fillStyle = '#aa3333';
+  ctx.beginPath(); ctx.arc(-4, -3, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill();
+  
+  // Туловище дроида
+  ctx.fillStyle = '#aa3333';
+  ctx.fillRect(-5, 2, 10, 8);
+  
+  // Щупальца
+  ctx.strokeStyle = '#cc4444';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-5, 5);
+  ctx.quadraticCurveTo(-10, 3, -12, 8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(5, 5);
+  ctx.quadraticCurveTo(10, 3, 12, 8);
+  ctx.stroke();
+  
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// Уровень 3: Мозг
+function drawBrainEnemy(m) {
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
+  
+  ctx.fillStyle = '#ff4466';
+  ctx.shadowColor = '#ff4466';
+  ctx.shadowBlur = 15;
+  
+  // Основная форма мозга (волны)
+  for (let i = 0; i < 4; i++) {
+    const offsetX = Math.cos(i / 4 * Math.PI * 2) * (m.r * 0.6);
+    const offsetY = Math.sin(i / 4 * Math.PI * 2) * (m.r * 0.6);
+    ctx.beginPath();
+    ctx.arc(offsetX, offsetY, m.r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  // Центральная часть
+  ctx.fillStyle = '#ff6677';
+  ctx.beginPath();
+  ctx.arc(0, 0, m.r * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// Уровень 4: Консервная банка
+function drawCanEnemy(m) {
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
+  
+  // Крышка банки (золотая)
+  ctx.fillStyle = '#d4a34a';
+  ctx.beginPath();
+  ctx.ellipse(0, -m.r * 0.8, m.r * 0.6, m.r * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Основное тело банки (красное + жёлтое)
+  ctx.fillStyle = '#cc3333';
+  ctx.fillRect(-m.r * 0.8, -m.r * 0.6, m.r * 1.6, m.r * 0.6);
+  
+  ctx.fillStyle = '#ffff00';
+  ctx.fillRect(-m.r * 0.8, 0, m.r * 1.6, m.r * 0.7);
+  
+  ctx.fillStyle = '#cc3333';
+  ctx.fillRect(-m.r * 0.8, m.r * 0.7, m.r * 1.6, m.r * 0.5);
+  
+  // Контур
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-m.r * 0.8, -m.r * 0.6, m.r * 1.6, m.r * 1.8);
+  
+  // Жёлтое отверстие (как на картинке)
+  ctx.fillStyle = '#ffcc00';
+  ctx.beginPath();
+  ctx.arc(0, -m.r * 0.2, m.r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+// Уровень 5+: Корабль Нимбус
+function drawNimbusShip(m) {
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
+  
+  // Основной овал корабля
+  ctx.fillStyle = '#d4c890';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, m.r * 1.2, m.r * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Тень на корабле
+  ctx.fillStyle = '#9a9460';
+  ctx.beginPath();
+  ctx.ellipse(0, 4, m.r * 1.2, m.r * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Красный "рот" с зубами
+  ctx.fillStyle = '#8a4444';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, m.r * 0.8, m.r * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Зубы
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 5; i++) {
+    const x = -m.r * 0.6 + i * m.r * 0.3;
+    ctx.fillRect(x, 1.5, m.r * 0.15, m.r * 0.3);
+  }
+  
+  // Две пушки по бокам
+  ctx.fillStyle = '#7a7a7a';
+  ctx.beginPath();
+  ctx.arc(-m.r * 1, 0, m.r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(m.r * 1, 0, m.r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Антенна сверху
+  ctx.strokeStyle = '#7a7a7a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -m.r);
+  ctx.lineTo(0, -m.r * 1.4);
+  ctx.stroke();
+  
+  // 4 ноги внизу
+  ctx.fillStyle = '#9a9090';
+  ctx.beginPath();
+  ctx.arc(-m.r * 0.8, m.r * 1.2, m.r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(m.r * 0.8, m.r * 1.2, m.r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
   
   ctx.restore();
 }
@@ -1619,7 +1789,26 @@ function drawPowerup(p) {
   ctx.restore();
 }
 
+/* ==================== РИСОВАНИЕ СКИНОВ ПО УРОВНЯМ ==================== */
+
 function drawRocket(r) {
+  const level = getCurrentLevel(game.score);
+  
+  if (level >= 5) {
+    drawBender(r);
+  } else if (level === 4) {
+    drawHamster(r);
+  } else if (level === 3) {
+    drawUFO(r);
+  } else if (level === 2) {
+    drawR2D2(r);
+  } else {
+    drawRocket1(r);
+  }
+}
+
+// Уровень 1: Оригинальная ракета
+function drawRocket1(r) {
   ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.tilt);
   const flameH = 22 + Math.sin(r.flameT) * 6;
   const flameW = 10;
@@ -1682,6 +1871,275 @@ function drawRocket(r) {
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(-r.width / 2 + 2, 10, r.width - 4, 3);
+  ctx.restore();
+}
+
+// Уровень 2: R2D2
+function drawR2D2(r) {
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  
+  // Основное тело (белый + синий)
+  ctx.fillStyle = '#e8e8e8';
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Синяя полоса посередине
+  ctx.fillStyle = '#0047ab';
+  ctx.fillRect(-16, -5, 32, 10);
+  
+  // Голова (куполообразная)
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(0, -14, 10, 0, Math.PI);
+  ctx.fill();
+  
+  // Синяя верхушка головы
+  ctx.fillStyle = '#0047ab';
+  ctx.beginPath();
+  ctx.arc(0, -14, 6, 0, Math.PI);
+  ctx.fill();
+  
+  // Главный глаз (чёрный)
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.arc(0, -16, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Красный датчик
+  ctx.fillStyle = '#ff3333';
+  ctx.beginPath();
+  ctx.arc(0, 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Панели
+  ctx.strokeStyle = '#0047ab';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-8, -5);
+  ctx.lineTo(-8, 5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(8, -5);
+  ctx.lineTo(8, 5);
+  ctx.stroke();
+  
+  // Ноги
+  ctx.fillStyle = '#d3d3d3';
+  ctx.beginPath();
+  ctx.arc(-8, 16, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(8, 16, 4, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+// Уровень 3: Летающая тарелка
+function drawUFO(r) {
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  
+  // Основной диск
+  ctx.fillStyle = '#1a3a52';
+  ctx.beginPath();
+  ctx.ellipse(0, 5, 18, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Свечение края
+  ctx.strokeStyle = '#00ffff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#00ffff';
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  
+  // Купол (кабина)
+  ctx.fillStyle = '#4a9eff';
+  ctx.beginPath();
+  ctx.arc(0, -8, 8, 0, Math.PI);
+  ctx.fill();
+  
+  // Свечение купола
+  ctx.strokeStyle = '#00ffff';
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = '#00ffff';
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+  
+  // Окна в куполе
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(-3, -7, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(3, -7, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// Уровень 4: Хомяк с рюкзаком
+function drawHamster(r) {
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  
+  // Рюкзак (чёрный + красный)
+  ctx.fillStyle = '#2a2a2a';
+  ctx.beginPath();
+  ctx.ellipse(0, -10, 10, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Красная полоса на рюкзаке
+  ctx.fillStyle = '#ff3333';
+  ctx.fillRect(-2, -8, 4, 8);
+  
+  // Жёлтый квадрат на рюкзаке
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillRect(-1.5, -5, 3, 3);
+  
+  // Тело хомяка (рыжее)
+  ctx.fillStyle = '#ff9933';
+  ctx.beginPath();
+  ctx.arc(0, 5, 12, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Белый живот
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(0, 8, 7, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Голова (рыжая)
+  ctx.fillStyle = '#ff9933';
+  ctx.beginPath();
+  ctx.arc(0, -5, 9, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Белые щёки
+  ctx.fillStyle = '#ffcccc';
+  ctx.beginPath();
+  ctx.arc(-6, -3, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(6, -3, 4, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Нос
+  ctx.fillStyle = '#ffaaaa';
+  ctx.beginPath();
+  ctx.arc(0, 0, 2, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Глаза
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.arc(-4, -6, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(4, -6, 2, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Уши
+  ctx.fillStyle = '#ff9933';
+  ctx.beginPath();
+  ctx.arc(-6, -13, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(6, -13, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Лапки
+  ctx.fillStyle = '#ffaaaa';
+  ctx.beginPath();
+  ctx.arc(-6, 15, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(6, 15, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+// Уровень 5+: Бендер
+function drawBender(r) {
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  
+  // Ноги
+  ctx.fillStyle = '#7a9ec4';
+  ctx.fillRect(-3, 18, 6, 10);
+  ctx.fillRect(-6, 12, 3, 6);
+  ctx.fillRect(3, 12, 3, 6);
+  
+  // Туловище
+  ctx.fillStyle = '#9db3d9';
+  ctx.fillRect(-8, -2, 16, 16);
+  
+  // Дверца на туловище
+  ctx.strokeStyle = '#4a5a8a';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-4, 2, 8, 8);
+  
+  // Плечи и руки
+  ctx.fillStyle = '#7a9ec4';
+  ctx.beginPath();
+  ctx.arc(-10, 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(10, 2, 3, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Сегменты рук
+  ctx.fillRect(-12, 4, 4, 2);
+  ctx.fillRect(8, 4, 4, 2);
+  
+  // Шея
+  ctx.fillStyle = '#9db3d9';
+  ctx.fillRect(-6, -8, 12, 6);
+  
+  // Голова
+  ctx.fillStyle = '#9db3d9';
+  ctx.fillRect(-7, -18, 14, 10);
+  
+  // Глаза (жёлтые)
+  ctx.fillStyle = '#ffff00';
+  ctx.beginPath();
+  ctx.arc(-3, -15, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(3, -15, 2, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Зрачки
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.arc(-3, -15, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(3, -15, 1, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Рот (жёлтые зубы)
+  ctx.fillStyle = '#ffff00';
+  ctx.fillRect(-5, -10, 10, 2);
+  
+  // Антенна
+  ctx.strokeStyle = '#7a9ec4';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -18);
+  ctx.lineTo(0, -28);
+  ctx.stroke();
+  
+  // Кружок на антенне
+  ctx.fillStyle = '#9db3d9';
+  ctx.beginPath();
+  ctx.arc(0, -30, 2, 0, Math.PI * 2);
+  ctx.fill();
+  
   ctx.restore();
 }
 
