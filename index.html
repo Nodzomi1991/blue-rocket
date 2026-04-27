@@ -1815,56 +1815,59 @@ function drawRocket1(r) {
   ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.tilt);
   const flameH = 22 + Math.sin(r.flameT) * 6;
   const flameW = 10;
-  const fg = ctx.createLinearGradient(0, r.height / 2, 0, r.height / 2 + flameH);
+  const rocketHeight = 56;
+  const rocketWidth = 36;
+  
+  const fg = ctx.createLinearGradient(0, rocketHeight / 2, 0, rocketHeight / 2 + flameH);
   fg.addColorStop(0, '#fff8c0'); fg.addColorStop(0.4, '#ff9500'); fg.addColorStop(1, 'rgba(255, 60, 0, 0)');
   ctx.fillStyle = fg;
   ctx.beginPath();
-  ctx.moveTo(-flameW, r.height / 2 - 2);
-  ctx.quadraticCurveTo(0, r.height / 2 + flameH * 1.4, flameW, r.height / 2 - 2);
+  ctx.moveTo(-flameW, rocketHeight / 2 - 2);
+  ctx.quadraticCurveTo(0, rocketHeight / 2 + flameH * 1.4, flameW, rocketHeight / 2 - 2);
   ctx.closePath(); ctx.fill();
 
-  const fg2 = ctx.createLinearGradient(0, r.height / 2, 0, r.height / 2 + flameH * 0.6);
+  const fg2 = ctx.createLinearGradient(0, rocketHeight / 2, 0, rocketHeight / 2 + flameH * 0.6);
   fg2.addColorStop(0, '#ffffff'); fg2.addColorStop(1, 'rgba(255, 255, 200, 0)');
   ctx.fillStyle = fg2;
   ctx.beginPath();
-  ctx.moveTo(-flameW * 0.5, r.height / 2 - 2);
-  ctx.quadraticCurveTo(0, r.height / 2 + flameH * 0.8, flameW * 0.5, r.height / 2 - 2);
+  ctx.moveTo(-flameW * 0.5, rocketHeight / 2 - 2);
+  ctx.quadraticCurveTo(0, rocketHeight / 2 + flameH * 0.8, flameW * 0.5, rocketHeight / 2 - 2);
   ctx.closePath(); ctx.fill();
 
   ctx.shadowColor = '#4af2ff'; ctx.shadowBlur = 20;
 
   ctx.fillStyle = '#2a5aa8';
   ctx.beginPath();
-  ctx.moveTo(-r.width / 2, r.height / 2);
-  ctx.lineTo(-r.width / 2 - 8, r.height / 2 + 4);
-  ctx.lineTo(-r.width / 2, r.height / 2 - 14);
+  ctx.moveTo(-rocketWidth / 2, rocketHeight / 2);
+  ctx.lineTo(-rocketWidth / 2 - 8, rocketHeight / 2 + 4);
+  ctx.lineTo(-rocketWidth / 2, rocketHeight / 2 - 14);
   ctx.closePath(); ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(r.width / 2, r.height / 2);
-  ctx.lineTo(r.width / 2 + 8, r.height / 2 + 4);
-  ctx.lineTo(r.width / 2, r.height / 2 - 14);
+  ctx.moveTo(rocketWidth / 2, rocketHeight / 2);
+  ctx.lineTo(rocketWidth / 2 + 8, rocketHeight / 2 + 4);
+  ctx.lineTo(rocketWidth / 2, rocketHeight / 2 - 14);
   ctx.closePath(); ctx.fill();
 
-  const bg = ctx.createLinearGradient(-r.width / 2, 0, r.width / 2, 0);
+  const bg = ctx.createLinearGradient(-rocketWidth / 2, 0, rocketWidth / 2, 0);
   bg.addColorStop(0, '#2a5aa8'); bg.addColorStop(0.5, '#6b9cff'); bg.addColorStop(1, '#2a5aa8');
   ctx.fillStyle = bg;
   ctx.beginPath();
-  ctx.moveTo(0, -r.height / 2);
-  ctx.quadraticCurveTo(r.width / 2, -r.height / 4, r.width / 2, r.height / 4);
-  ctx.lineTo(r.width / 2, r.height / 2);
-  ctx.lineTo(-r.width / 2, r.height / 2);
-  ctx.lineTo(-r.width / 2, r.height / 4);
-  ctx.quadraticCurveTo(-r.width / 2, -r.height / 4, 0, -r.height / 2);
+  ctx.moveTo(0, -rocketHeight / 2);
+  ctx.quadraticCurveTo(rocketWidth / 2, -rocketHeight / 4, rocketWidth / 2, rocketHeight / 4);
+  ctx.lineTo(rocketWidth / 2, rocketHeight / 2);
+  ctx.lineTo(-rocketWidth / 2, rocketHeight / 2);
+  ctx.lineTo(-rocketWidth / 2, rocketHeight / 4);
+  ctx.quadraticCurveTo(-rocketWidth / 2, -rocketHeight / 4, 0, -rocketHeight / 2);
   ctx.closePath(); ctx.fill();
 
   ctx.shadowBlur = 0;
 
   ctx.fillStyle = '#4af2ff';
   ctx.beginPath();
-  ctx.moveTo(0, -r.height / 2);
-  ctx.quadraticCurveTo(r.width / 3, -r.height / 4, r.width / 3, 0);
-  ctx.lineTo(-r.width / 3, 0);
-  ctx.quadraticCurveTo(-r.width / 3, -r.height / 4, 0, -r.height / 2);
+  ctx.moveTo(0, -rocketHeight / 2);
+  ctx.quadraticCurveTo(rocketWidth / 3, -rocketHeight / 4, rocketWidth / 3, 0);
+  ctx.lineTo(-rocketWidth / 3, 0);
+  ctx.quadraticCurveTo(-rocketWidth / 3, -rocketHeight / 4, 0, -rocketHeight / 2);
   ctx.closePath(); ctx.fill();
 
   ctx.fillStyle = '#0a0e27';
@@ -1873,7 +1876,7 @@ function drawRocket1(r) {
   ctx.beginPath(); ctx.arc(-2, -4, 3, 0, Math.PI * 2); ctx.fill();
 
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(-r.width / 2 + 2, 10, r.width - 4, 3);
+  ctx.fillRect(-rocketWidth / 2 + 2, 10, rocketWidth - 4, 3);
   ctx.restore();
 }
 
