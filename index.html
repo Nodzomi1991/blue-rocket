@@ -23,7 +23,14 @@
     overscroll-behavior: none;
   }
   #game { position: fixed; inset: 0; }
-  canvas { display: block; width: 100%; height: 100%; }
+  canvas { 
+    display: block; 
+    width: 100%; 
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
 
 .screen {
 position: fixed;
@@ -183,7 +190,7 @@ display: flex;
 justify-content: space-between;
 align-items: flex-start;
 pointer-events: none;
-z-index: 5;
+z-index: 15;
 }
 #hud.hidden { display: none; }
 .hud-box {
@@ -373,7 +380,7 @@ letter-spacing: 1px;
       <div class="pwr-bar"><div class="pwr-fill" id="laserBar"></div></div>
     </div>
   </div>
-  <div class="hud-box" style="display:flex;align-items:center;">
+  <div class="hud-box" style="display:flex;align-items:center;pointer-events:auto;">
     <button id="soundBtn" class="sound-btn" onclick="toggleSound()">🔊</button>
   </div>
 </div>
@@ -503,8 +510,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ==================== FIREBASE CONFIG ====================
-// TODO: Замените на свой конфиг из Firebase Console
-// Project Settings → General → Your apps → Web app → Config
 const firebaseConfig = {
   apiKey: "AIzaSyB6gDsBFadkThGUxVjjKC8SFI8bW5LDrQQ",
   authDomain: "blue-rocket-aa9d5.firebaseapp.com",
@@ -518,7 +523,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Экспортируем в window, чтобы обычные скрипты могли пользоваться
 window.fb = {
   auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut, onAuthStateChanged, sendPasswordResetEmail,
@@ -530,7 +534,6 @@ window.dispatchEvent(new Event('firebase-ready'));
 
 <script>
 /* ==================== SEASON HELPERS ==================== */
-// Сезон = половина месяца. ID вида "2026-04-1" (первая половина апреля) или "2026-04-2"
 function currentSeason(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -542,10 +545,8 @@ function seasonEndDate(date = new Date()) {
   const y = date.getFullYear();
   const m = date.getMonth();
   if (date.getDate() < 15) {
-    // Заканчивается 15-го в 00:00
     return new Date(y, m, 15, 0, 0, 0);
   } else {
-    // Заканчивается 1-го следующего месяца в 00:00
     return new Date(y, m + 1, 1, 0, 0, 0);
   }
 }
@@ -568,8 +569,8 @@ function formatSeasonName(id) {
 }
 
 /* ==================== STATE ==================== */
-let currentUser = null;     // Firebase user object
-let currentProfile = null;  // { nick, phone, email }
+let currentUser = null;
+let currentProfile = null;
 let game = null;
 let countdownTimer = null;
 
@@ -592,7 +593,6 @@ function getLevelInfo(score) {
       return level;
     }
   }
-  // Для уровней > 9 (каждый 1500 очков)
   const levelNum = Math.floor((score - 11000) / 1500) + 10;
   const minScore = 11000 + (levelNum - 10) * 1500;
   const maxScore = minScore + 1500;
@@ -611,12 +611,15 @@ function showScreen(name) {
     const el = $('screen-' + s);
     if (el) el.classList.toggle('hidden', s !== name);
   });
-  $('hud').classList.toggle('hidden', name !== 'playing');
+  
+  // Управляем видимостью canvas и HUD
+  const canvas = $('canvas');
+  const hud = $('hud');
   if (name === 'playing') {
-    ['boot', 'login', 'register', 'rules', 'menu', 'over'].forEach(s => {
-      const el = $('screen-' + s);
-      if (el) el.classList.add('hidden');
-    });
+    if (canvas) canvas.style.display = 'block';
+    if (hud) hud.classList.remove('hidden');
+  } else {
+    if (hud) hud.classList.add('hidden');
   }
 }
 window.showScreen = showScreen;
@@ -650,7 +653,6 @@ function startCountdown() {
     const end = seasonEndDate();
     const ms = end.getTime() - Date.now();
     $('seasonCountdown').textContent = formatCountdown(ms);
-    // Если сезон истёк — перечитываем лидерборд (у нас появится новый)
     if (ms <= 0 && currentUser) {
       setTimeout(() => showMenu(), 1000);
     }
@@ -677,18 +679,15 @@ async function doRegister() {
     if (!email.includes('@')) throw new Error('Некорректный email');
     if (pass.length < 6) throw new Error('Пароль минимум 6 символов');
 
-    // Создаём пользователя в Auth первым
     const cred = await window.fb.createUserWithEmailAndPassword(window.fb.auth, email, pass);
     const uid = cred.user.uid;
 
-    // Затем создаём профиль в Firestore (без транзакции)
     const nickKey = nick.toLowerCase();
     await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), {
       nick, phone: phone || null, email,
       createdAt: window.fb.serverTimestamp()
     });
 
-    // И резервируем ник
     await window.fb.setDoc(window.fb.doc(window.fb.db, 'nicks', nickKey), {
       uid, nick,
       createdAt: window.fb.serverTimestamp()
@@ -762,7 +761,7 @@ async function doResetPassword() {
 }
 window.doResetPassword = doResetPassword;
 
-/* ==================== LEADERBOARD (Firestore) ==================== */
+/* ==================== LEADERBOARD ==================== */
 async function getTopScores(seasonId, topN = 10) {
   const colRef = window.fb.collection(window.fb.db, 'seasons', seasonId, 'scores');
   const q = window.fb.query(colRef, window.fb.orderBy('bestScore', 'desc'), window.fb.limit(topN));
@@ -817,7 +816,6 @@ async function showGameOver(score) {
   showScreen('over');
   $('finalScore').textContent = score;
   
-  // Показываем информацию о режиме
   const modeInfo = game.gameMode === 'levels' ? '🎮 Режим уровней' : '♾️ Бесконечность';
   if ($('modeInfo')) $('modeInfo').textContent = modeInfo;
   
@@ -850,8 +848,6 @@ window.addEventListener('firebase-ready', () => {
   window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
     if (user) {
       currentUser = user;
-      // Загружаем профиль (ник) с повторными попытками
-      // (профиль может создаваться параллельно при регистрации)
       let profileFound = false;
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
@@ -864,14 +860,12 @@ window.addEventListener('firebase-ready', () => {
         } catch (e) {
           console.error('Profile fetch error:', e);
         }
-        // Ждём 800мс перед следующей попыткой (регистрация в процессе)
         await new Promise(r => setTimeout(r, 800));
       }
 
       if (profileFound) {
         await showMenu();
       } else {
-        // Профиль не найден после 5 попыток
         showScreen('register');
         $('regError').textContent = 'Профиль не найден. Проверьте интернет и попробуйте снова.';
       }
@@ -1047,10 +1041,14 @@ let W = 0, H = 0, DPR = 1;
 
 function resizeCanvas() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W * DPR; canvas.height = H * DPR;
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  W = window.innerWidth; 
+  H = window.innerHeight;
+  canvas.width = W * DPR; 
+  canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; 
+  canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  console.log('Canvas resized:', W, H, DPR);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -1064,11 +1062,11 @@ function createGame() {
     difficulty: 1, scrollSpeed: 2.5,
     shieldTime: 0, shieldMax: 6, boostTime: 0, boostMax: 4, laserTime: 0, laserMax: 4, shieldRing: 0,
     lives: 3, maxLives: 3,
-    gameMode: 'infinite', // 'levels' или 'infinite'
+    gameMode: 'infinite',
     currentLevel: 1,
-    lifeBoostUsedThisLevel: false, // Флаг: уже ли был буст жизни в этом уровне
-    levelTransitionTime: 0, // Время для перехода между уровнями
-    showingLevelScreen: false, // Показываем ли экран уровня
+    lifeBoostUsedThisLevel: false,
+    levelTransitionTime: 0,
+    showingLevelScreen: false,
     initBg() {
       for (let i = 0; i < 80; i++) this.stars.push({
         x: Math.random() * W, y: Math.random() * H,
@@ -1097,245 +1095,242 @@ canvas.addEventListener('mouseleave', () => { canvas._md = false; });
 
 function startGame(mode = 'infinite') {
   if (!currentUser || !currentProfile) return;
+  
+  // Убедимся что canvas полностью видим
   resizeCanvas();
-  Sound.init(); Sound.resume();
+  Sound.init(); 
+  Sound.resume();
+  
   game = createGame();
-  game.gameMode = mode; // Сохраняем выбранный режим
+  game.gameMode = mode;
   game.initBg();
   game.running = true;
+  
   showScreen('playing');
   updatePowerupUI();
   Sound.startEngine();
+  
   lastFrame = performance.now();
   requestAnimationFrame(loop);
+  
+  console.log('Game started:', game);
 }
 window.startGame = startGame;
 
 let lastFrame = 0;
 function loop(ts) {
-  if (!game || !game.running) return;
+  if (!game || !game.running) {
+    requestAnimationFrame(loop);
+    return;
+  }
   const dt = Math.min(0.05, (ts - lastFrame) / 1000);
   lastFrame = ts;
-  update(dt); render();
+  update(dt); 
+  render();
   requestAnimationFrame(loop);
 }
 
 function update(dt) {
-  // Проверяем переход между уровнями
   if (game.gameMode === 'levels') {
     const newLevel = getCurrentLevel(game.score);
     if (newLevel !== game.currentLevel) {
-      // Начинаем переход на новый уровень
       game.currentLevel = newLevel;
-      game.levelTransitionTime = 2; // 2 секунды на переход
+      game.levelTransitionTime = 2;
       game.showingLevelScreen = true;
-      game.lifeBoostUsedThisLevel = false; // Сбрасываем флаг буста
-      Sound.stopEngine(); // Останавливаем звук двигателя
-      return; // Пропускаем обновление игры во время переходa
+      game.lifeBoostUsedThisLevel = false;
+      Sound.stopEngine();
+      return;
     }
   }
   
-  // Обновляем время переходa
   if (game.levelTransitionTime > 0) {
     game.levelTransitionTime -= dt;
     if (game.levelTransitionTime <= 0) {
       game.showingLevelScreen = false;
-      // Сбрасываем параметры для нового уровня
-      game.time = 0; // Сбрасываем время
-      game.difficulty = 1; // Сбрасываем сложность
-      game.scrollSpeed = 2.5; // Сбрасываем скорость на начальную
-      Sound.startEngine(); // Запускаем звук двигателя
+      game.time = 0;
+      game.difficulty = 1;
+      game.scrollSpeed = 2.5;
+      Sound.startEngine();
     }
-    // Не обновляем игру во время переходa, но рендерим!
   } else {
-    // Обновляем только если не в переходе
     game.time += dt;
     game.difficulty = 1 + game.time * 0.04;
     game.scrollSpeed = 2.5 + game.time * 0.05;
-  const laserActive = game.laserTime > 0;
-  const effScroll = game.scrollSpeed;
+  
+    const laserActive = game.laserTime > 0;
+    const effScroll = game.scrollSpeed;
 
-  if (game.shieldTime > 0) {
-    game.shieldTime = Math.max(0, game.shieldTime - dt);
-    game.shieldRing += dt * 4;
-    if (game.shieldTime === 0) { Sound.shieldBreak(); vibrate(20); }
-  }
-  if (game.laserTime > 0) {
-    game.laserTime = Math.max(0, game.laserTime - dt);
-    // Каждый кадр стреляем яркие синие пульки из ракеты
-    if (Math.random() < 0.6) {
-      for (let i = 0; i < 2; i++) {
-        game.bullets.push({
-          x: game.rocket.x + (Math.random() - 0.5) * 10,
-          y: game.rocket.y - 30,
-          vy: -8 - Math.random() * 3,
-          r: 2.5 + Math.random() * 1.5,
-          life: 1.5
-        });
-      }
+    if (game.shieldTime > 0) {
+      game.shieldTime = Math.max(0, game.shieldTime - dt);
+      game.shieldRing += dt * 4;
+      if (game.shieldTime === 0) { Sound.shieldBreak(); vibrate(20); }
     }
-  }
-  updatePowerupUI();
-
-  const r = game.rocket;
-  const dx = game.targetX - r.x;
-  r.vx += dx * 0.012; r.vx *= 0.85; r.x += r.vx;
-  if (r.x < r.width / 2) { r.x = r.width / 2; r.vx = 0; }
-  if (r.x > W - r.width / 2) { r.x = W - r.width / 2; r.vx = 0; }
-  r.tilt += (r.vx * 0.04 - r.tilt) * 0.2;
-  r.tilt = Math.max(-0.5, Math.min(0.5, r.tilt));
-  r.flameT += dt * 20;
-
-  game.altitude += effScroll * dt * 60 * 0.3;
-
-  game.stars.forEach(s => {
-    s.y += effScroll * s.layer * 0.5;
-    s.tw += dt * 3;
-    if (s.y > H) { s.y = -5; s.x = Math.random() * W; }
-  });
-
-  game.spawnTimer -= dt;
-  if (game.spawnTimer <= 0) {
-    game.spawnTimer = 0.45 + Math.random() * 0.4;
-    game.collectibles.push({
-      x: 30 + Math.random() * (W - 60), y: -30, r: 14,
-      rot: 0, rotSpeed: (Math.random() - 0.5) * 4, pulse: Math.random() * Math.PI * 2
-    });
-  }
-
-  game.meteorTimer -= dt;
-  if (game.meteorTimer <= 0) {
-    game.meteorTimer = Math.max(0.35, 1.4 - game.difficulty * 0.12);
-    const size = 20 + Math.random() * 22;
-    game.meteors.push({
-      x: 30 + Math.random() * (W - 60), y: -size, r: size,
-      vx: (Math.random() - 0.5) * 1.5,
-      vy: 1 + Math.random() * 1.5 + game.difficulty * 0.3,
-      rot: Math.random() * Math.PI * 2, rotSpeed: (Math.random() - 0.5) * 2,
-      craters: genCraters(size)
-    });
-  }
-
-  game.powerupTimer -= dt;
-  if (game.powerupTimer <= 0) {
-    game.powerupTimer = 10 + Math.random() * 8;
-    
-    // Проверяем текущий уровень
-    const currentLevel = getCurrentLevel(game.score);
-    if (currentLevel !== game.currentLevel) {
-      game.currentLevel = currentLevel;
-      game.lifeBoostUsedThisLevel = false; // Сбрасываем флаг на новом уровне
-    }
-    
-    // Один раз за уровень - спавним сердечко для жизни
-    let powerupType = 'shield';
-    if (!game.lifeBoostUsedThisLevel && Math.random() < 0.33) {
-      powerupType = 'life';
-      game.lifeBoostUsedThisLevel = true;
-    } else if (Math.random() < 0.5) {
-      powerupType = 'shield';
-    } else {
-      powerupType = 'laser';
-    }
-    
-    game.powerups.push({
-      x: 40 + Math.random() * (W - 80), y: -30, r: 18,
-      type: powerupType,
-      rot: 0, pulse: 0
-    });
-  }
-
-  game.collectibles = game.collectibles.filter(c => {
-    c.y += effScroll * 1.5; c.rot += c.rotSpeed * dt; c.pulse += dt * 5;
-    if (circHit(c.x, c.y, c.r, r.x, r.y - 10, 20)) {
-      game.score += 10; // Одна звезда = 10 очков
-      spawnBurst(c.x, c.y, '#ffd700', 10); Sound.collect(); return false;
-    }
-    return c.y < H + 40;
-  });
-
-  game.powerups = game.powerups.filter(p => {
-    p.y += effScroll * 1.3; p.rot += dt * 2; p.pulse += dt * 4;
-    if (circHit(p.x, p.y, p.r, r.x, r.y - 10, 22)) {
-      if (p.type === 'shield') {
-        game.shieldTime = game.shieldMax;
-        spawnBurst(p.x, p.y, '#4af2ff', 20); Sound.shield(); vibrate(30);
-      } else if (p.type === 'life') {
-        // Буст жизни - сердечко
-        if (game.lives < game.maxLives) {
-          game.lives++;
+    if (game.laserTime > 0) {
+      game.laserTime = Math.max(0, game.laserTime - dt);
+      if (Math.random() < 0.6) {
+        for (let i = 0; i < 2; i++) {
+          game.bullets.push({
+            x: game.rocket.x + (Math.random() - 0.5) * 10,
+            y: game.rocket.y - 30,
+            vy: -8 - Math.random() * 3,
+            r: 2.5 + Math.random() * 1.5,
+            life: 1.5
+          });
         }
-        spawnBurst(p.x, p.y, '#ff4444', 25); Sound.shield(); vibrate(30);
-      } else {
-        // Лазер буст
-        game.laserTime = game.laserMax;
-        spawnBurst(p.x, p.y, '#ff4444', 25); Sound.boost(); vibrate(40);
       }
-      return false;
     }
-    return p.y < H + 40;
-  });
+    updatePowerupUI();
 
-  // Обновляем пули и проверяем столкновение с метеоритами
-  game.bullets = game.bullets.filter(bullet => {
-    bullet.y += bullet.vy;
-    bullet.life -= dt;
-    
-    // Пуля поражает метеориты
-    game.meteors = game.meteors.filter(m => {
-      if (circHit(bullet.x, bullet.y, bullet.r, m.x, m.y, m.r * 0.8)) {
-        game.score += 10;
-        spawnBurst(m.x, m.y, '#ff4444', 15);
-        Sound.explode();
-        return false; // Метеорит уничтожен
-      }
-      return true;
+    const r = game.rocket;
+    const dx = game.targetX - r.x;
+    r.vx += dx * 0.012; r.vx *= 0.85; r.x += r.vx;
+    if (r.x < r.width / 2) { r.x = r.width / 2; r.vx = 0; }
+    if (r.x > W - r.width / 2) { r.x = W - r.width / 2; r.vx = 0; }
+    r.tilt += (r.vx * 0.04 - r.tilt) * 0.2;
+    r.tilt = Math.max(-0.5, Math.min(0.5, r.tilt));
+    r.flameT += dt * 20;
+
+    game.altitude += effScroll * dt * 60 * 0.3;
+
+    game.stars.forEach(s => {
+      s.y += effScroll * s.layer * 0.5;
+      s.tw += dt * 3;
+      if (s.y > H) { s.y = -5; s.x = Math.random() * W; }
     });
-    
-    return bullet.life > 0 && bullet.y > -50;
-  });
 
-  game.meteors = game.meteors.filter(m => {
-    m.x += m.vx; m.y += m.vy + effScroll * 0.6; m.rot += m.rotSpeed * dt;
-    if (m.x < m.r || m.x > W - m.r) m.vx *= -1;
-    if (circHit(m.x, m.y, m.r * 0.85, r.x, r.y, 18)) {
-      if (game.shieldTime > 0) {
-        game.shieldTime = 0;
-        spawnBurst(m.x, m.y, '#4af2ff', 25); spawnBurst(m.x, m.y, '#ffffff', 15);
-        Sound.shieldBreak(); vibrate([40, 50, 40]);
+    game.spawnTimer -= dt;
+    if (game.spawnTimer <= 0) {
+      game.spawnTimer = 0.45 + Math.random() * 0.4;
+      game.collectibles.push({
+        x: 30 + Math.random() * (W - 60), y: -30, r: 14,
+        rot: 0, rotSpeed: (Math.random() - 0.5) * 4, pulse: Math.random() * Math.PI * 2
+      });
+    }
+
+    game.meteorTimer -= dt;
+    if (game.meteorTimer <= 0) {
+      game.meteorTimer = Math.max(0.35, 1.4 - game.difficulty * 0.12);
+      const size = 20 + Math.random() * 22;
+      game.meteors.push({
+        x: 30 + Math.random() * (W - 60), y: -size, r: size,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: 1 + Math.random() * 1.5 + game.difficulty * 0.3,
+        rot: Math.random() * Math.PI * 2, rotSpeed: (Math.random() - 0.5) * 2,
+        craters: genCraters(size)
+      });
+    }
+
+    game.powerupTimer -= dt;
+    if (game.powerupTimer <= 0) {
+      game.powerupTimer = 10 + Math.random() * 8;
+      
+      const currentLevel = getCurrentLevel(game.score);
+      if (currentLevel !== game.currentLevel) {
+        game.currentLevel = currentLevel;
+        game.lifeBoostUsedThisLevel = false;
+      }
+      
+      let powerupType = 'shield';
+      if (!game.lifeBoostUsedThisLevel && Math.random() < 0.33) {
+        powerupType = 'life';
+        game.lifeBoostUsedThisLevel = true;
+      } else if (Math.random() < 0.5) {
+        powerupType = 'shield';
+      } else {
+        powerupType = 'laser';
+      }
+      
+      game.powerups.push({
+        x: 40 + Math.random() * (W - 80), y: -30, r: 18,
+        type: powerupType,
+        rot: 0, pulse: 0
+      });
+    }
+
+    game.collectibles = game.collectibles.filter(c => {
+      c.y += effScroll * 1.5; c.rot += c.rotSpeed * dt; c.pulse += dt * 5;
+      if (circHit(c.x, c.y, c.r, r.x, r.y - 10, 20)) {
+        game.score += 10;
+        spawnBurst(c.x, c.y, '#ffd700', 10); 
+        Sound.collect(); 
         return false;
       }
-      // Теряем жизнь
-      game.lives--;
-      spawnBurst(r.x, r.y, '#ff6b6b', 20);
-      Sound.explode(); vibrate([80, 40, 120]);
-      
-      if (game.lives <= 0) {
-        // Жизни закончились - Game Over
-        gameOver();
+      return c.y < H + 40;
+    });
+
+    game.powerups = game.powerups.filter(p => {
+      p.y += effScroll * 1.3; p.rot += dt * 2; p.pulse += dt * 4;
+      if (circHit(p.x, p.y, p.r, r.x, r.y - 10, 22)) {
+        if (p.type === 'shield') {
+          game.shieldTime = game.shieldMax;
+          spawnBurst(p.x, p.y, '#4af2ff', 20); Sound.shield(); vibrate(30);
+        } else if (p.type === 'life') {
+          if (game.lives < game.maxLives) {
+            game.lives++;
+          }
+          spawnBurst(p.x, p.y, '#ff4444', 25); Sound.shield(); vibrate(30);
+        } else {
+          game.laserTime = game.laserMax;
+          spawnBurst(p.x, p.y, '#ff4444', 25); Sound.boost(); vibrate(40);
+        }
+        return false;
       }
-      return false;
-    }
-    return m.y < H + 60;
-  });
+      return p.y < H + 40;
+    });
 
-  game.particles = game.particles.filter(p => {
-    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= dt;
-    return p.life > 0;
-  });
+    game.bullets = game.bullets.filter(bullet => {
+      bullet.y += bullet.vy;
+      bullet.life -= dt;
+      
+      game.meteors = game.meteors.filter(m => {
+        if (circHit(bullet.x, bullet.y, bullet.r, m.x, m.y, m.r * 0.8)) {
+          game.score += 10;
+          spawnBurst(m.x, m.y, '#ff4444', 15);
+          Sound.explode();
+          return false;
+        }
+        return true;
+      });
+      
+      return bullet.life > 0 && bullet.y > -50;
+    });
 
-  $('scoreVal').textContent = game.score;
-  $('livesVal').textContent = game.lives;
-  }  // Закрываем else блок
+    game.meteors = game.meteors.filter(m => {
+      m.x += m.vx; m.y += m.vy + effScroll * 0.6; m.rot += m.rotSpeed * dt;
+      if (m.x < m.r || m.x > W - m.r) m.vx *= -1;
+      if (circHit(m.x, m.y, m.r * 0.85, r.x, r.y, 18)) {
+        if (game.shieldTime > 0) {
+          game.shieldTime = 0;
+          spawnBurst(m.x, m.y, '#4af2ff', 25); spawnBurst(m.x, m.y, '#ffffff', 15);
+          Sound.shieldBreak(); vibrate([40, 50, 40]);
+          return false;
+        }
+        game.lives--;
+        spawnBurst(r.x, r.y, '#ff6b6b', 20);
+        Sound.explode(); vibrate([80, 40, 120]);
+        
+        if (game.lives <= 0) {
+          gameOver();
+        }
+        return false;
+      }
+      return m.y < H + 60;
+    });
+
+    game.particles = game.particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= dt;
+      return p.life > 0;
+    });
+
+    $('scoreVal').textContent = game.score;
+  }
 }
 
 function updatePowerupUI() {
   if (!game) return;
   
-  // Обновляем уровень и жизни
   const currentLevel = getCurrentLevel(game.score);
   if ($('levelLabel')) $('levelLabel').textContent = `Уровень ${currentLevel}`;
-  if ($('livesVal')) $('livesVal').textContent = game.lives + ' ❤️';
   
   const si = $('shieldInd'), bi = $('boostInd');
   if (game.shieldTime > 0) {
@@ -1382,7 +1377,7 @@ async function gameOver() {
   if (!game.running) return;
   game.running = false;
   Sound.stopEngine();
-  const finalScore = game.score; // Только звёзды (по 10 очков за каждую)
+  const finalScore = game.score;
   await showGameOver(finalScore);
 }
 
@@ -1408,14 +1403,12 @@ function render() {
   game.powerups.forEach(p => drawPowerup(p));
   game.meteors.forEach(m => drawMeteor(m));
 
-  // Рисуем пули лазера - яркие синие светящиеся
   game.bullets.forEach(b => {
-    ctx.fillStyle = '#00ffff'; // Яркий циан/голубой
+    ctx.fillStyle = '#00ffff';
     ctx.shadowColor = '#00ffff';
     ctx.shadowBlur = 15;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
     
-    // Внутренняя светящаяся часть
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = '#00ffff';
     ctx.shadowBlur = 8;
@@ -1448,16 +1441,13 @@ function render() {
     ctx.restore();
   }
   
-  // Показываем экран уровня при переходе
   if (game.showingLevelScreen || game.levelTransitionTime > 0) {
-    // Чёрный фон с прозрачностью
     const alpha = game.levelTransitionTime > 1 ? 1 : game.levelTransitionTime;
     ctx.globalAlpha = alpha;
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
     
-    // Текст "Уровень N"
     ctx.fillStyle = '#00ffff';
     ctx.font = 'bold ' + Math.floor(W * 0.15) + 'px Arial';
     ctx.textAlign = 'center';
@@ -1472,7 +1462,6 @@ function render() {
     ctx.fillText('Готов?', W / 2, H / 2 + W * 0.15);
   }
   
-  // Рисуем сердечки для жизней в углу экрана
   const heartSize = 20;
   const heartX = W - heartSize - 15;
   let heartY = 20;
@@ -1480,7 +1469,6 @@ function render() {
     drawHeartSmall(heartX - i * (heartSize + 8), heartY, heartSize);
   }
   
-  // Текст "Уровень N" под сердечками
   const currentLevel = getCurrentLevel(game.score);
   ctx.fillStyle = '#4af2ff';
   ctx.font = 'bold 12px Arial';
@@ -1495,16 +1483,12 @@ function drawHeartSmall(x, y, size) {
   ctx.shadowColor = '#ff3333';
   ctx.shadowBlur = 8;
   
-  // Рисуем маленькое сердечко
   const r = size * 0.5;
   ctx.beginPath();
   
-  // Левая часть
   ctx.arc(-r * 0.5, -r * 0.3, r * 0.4, 0, Math.PI * 2);
-  // Правая часть
   ctx.arc(r * 0.5, -r * 0.3, r * 0.4, 0, Math.PI * 2);
   
-  // Нижняя часть
   ctx.moveTo(-r * 0.8, -r * 0.1);
   ctx.quadraticCurveTo(0, r * 0.7, 0, r * 0.7);
   ctx.quadraticCurveTo(0, r * 0.7, r * 0.8, -r * 0.1);
@@ -1547,7 +1531,6 @@ function drawMeteor(m) {
   }
 }
 
-// Уровень 1: Оригинальный метеорит
 function drawMeteor1(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
   
@@ -1569,28 +1552,23 @@ function drawMeteor1(m) {
   ctx.restore();
 }
 
-// Уровень 2: Дроид в прозрачной оболочке
 function drawDroidEnemy(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
   
-  // Прозрачная сфера
   ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
   ctx.lineWidth = 2;
   ctx.shadowColor = '#64c8ff';
   ctx.shadowBlur = 10;
   ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.stroke();
   
-  // Дроид внутри (красный + чёрный)
   ctx.fillStyle = '#aa3333';
   ctx.beginPath(); ctx.arc(-4, -3, 4, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#1a1a1a';
   ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill();
   
-  // Туловище дроида
   ctx.fillStyle = '#aa3333';
   ctx.fillRect(-5, 2, 10, 8);
   
-  // Щупальца
   ctx.strokeStyle = '#cc4444';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -1606,7 +1584,6 @@ function drawDroidEnemy(m) {
   ctx.restore();
 }
 
-// Уровень 3: Мозг
 function drawBrainEnemy(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
   
@@ -1614,7 +1591,6 @@ function drawBrainEnemy(m) {
   ctx.shadowColor = '#ff4466';
   ctx.shadowBlur = 15;
   
-  // Основная форма мозга (волны)
   for (let i = 0; i < 4; i++) {
     const offsetX = Math.cos(i / 4 * Math.PI * 2) * (m.r * 0.6);
     const offsetY = Math.sin(i / 4 * Math.PI * 2) * (m.r * 0.6);
@@ -1623,7 +1599,6 @@ function drawBrainEnemy(m) {
     ctx.fill();
   }
   
-  // Центральная часть
   ctx.fillStyle = '#ff6677';
   ctx.beginPath();
   ctx.arc(0, 0, m.r * 0.7, 0, Math.PI * 2);
@@ -1633,17 +1608,14 @@ function drawBrainEnemy(m) {
   ctx.restore();
 }
 
-// Уровень 4: Консервная банка
 function drawCanEnemy(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
   
-  // Крышка банки (золотая)
   ctx.fillStyle = '#d4a34a';
   ctx.beginPath();
   ctx.ellipse(0, -m.r * 0.8, m.r * 0.6, m.r * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Основное тело банки (красное + жёлтое)
   ctx.fillStyle = '#cc3333';
   ctx.fillRect(-m.r * 0.8, -m.r * 0.6, m.r * 1.6, m.r * 0.6);
   
@@ -1653,12 +1625,10 @@ function drawCanEnemy(m) {
   ctx.fillStyle = '#cc3333';
   ctx.fillRect(-m.r * 0.8, m.r * 0.7, m.r * 1.6, m.r * 0.5);
   
-  // Контур
   ctx.strokeStyle = '#2a2a2a';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(-m.r * 0.8, -m.r * 0.6, m.r * 1.6, m.r * 1.8);
   
-  // Жёлтое отверстие (как на картинке)
   ctx.fillStyle = '#ffcc00';
   ctx.beginPath();
   ctx.arc(0, -m.r * 0.2, m.r * 0.25, 0, Math.PI * 2);
@@ -1667,36 +1637,30 @@ function drawCanEnemy(m) {
   ctx.restore();
 }
 
-// Уровень 5+: Корабль Нимбус
 function drawNimbusShip(m) {
   ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.rot);
   
-  // Основной овал корабля
   ctx.fillStyle = '#d4c890';
   ctx.beginPath();
   ctx.ellipse(0, 2, m.r * 1.2, m.r * 0.8, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Тень на корабле
   ctx.fillStyle = '#9a9460';
   ctx.beginPath();
   ctx.ellipse(0, 4, m.r * 1.2, m.r * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Красный "рот" с зубами
   ctx.fillStyle = '#8a4444';
   ctx.beginPath();
   ctx.ellipse(0, 2, m.r * 0.8, m.r * 0.35, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Зубы
   ctx.fillStyle = '#ffffff';
   for (let i = 0; i < 5; i++) {
     const x = -m.r * 0.6 + i * m.r * 0.3;
     ctx.fillRect(x, 1.5, m.r * 0.15, m.r * 0.3);
   }
   
-  // Две пушки по бокам
   ctx.fillStyle = '#7a7a7a';
   ctx.beginPath();
   ctx.arc(-m.r * 1, 0, m.r * 0.25, 0, Math.PI * 2);
@@ -1705,7 +1669,6 @@ function drawNimbusShip(m) {
   ctx.arc(m.r * 1, 0, m.r * 0.25, 0, Math.PI * 2);
   ctx.fill();
   
-  // Антенна сверху
   ctx.strokeStyle = '#7a7a7a';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -1713,7 +1676,6 @@ function drawNimbusShip(m) {
   ctx.lineTo(0, -m.r * 1.4);
   ctx.stroke();
   
-  // 4 ноги внизу
   ctx.fillStyle = '#9a9090';
   ctx.beginPath();
   ctx.arc(-m.r * 0.8, m.r * 1.2, m.r * 0.25, 0, Math.PI * 2);
@@ -1750,20 +1712,16 @@ function drawPowerup(p) {
     ctx.lineTo(-p.r * 0.4, -p.r * 0.2);
     ctx.closePath(); ctx.fill();
   } else if (p.type === 'life') {
-    // Красное сердечко для жизни
     ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 20;
     ctx.fillStyle = 'rgba(255, 51, 51, 0.3)';
     ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 2;
     
-    // Рисуем сердце
     ctx.beginPath();
     const x = 0, y = 0, r = p.r;
     
-    // Левая и правая части сердца (два полукруга сверху)
     ctx.arc(x - r * 0.5, y - r * 0.3, r * 0.5, 0, Math.PI * 2);
     ctx.arc(x + r * 0.5, y - r * 0.3, r * 0.5, 0, Math.PI * 2);
     
-    // Нижняя часть
     ctx.moveTo(x - r * 0.95, y - r * 0.15);
     ctx.quadraticCurveTo(x, y + r * 0.85, x, y + r * 0.85);
     ctx.quadraticCurveTo(x, y + r * 0.85, x + r * 0.95, y - r * 0.15);
@@ -1773,7 +1731,6 @@ function drawPowerup(p) {
     ctx.shadowBlur = 0; ctx.fillStyle = '#ff3333';
     ctx.fill();
   } else {
-    // Лазер буст - синий светящийся
     ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
     ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
     ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2;
@@ -1793,8 +1750,6 @@ function drawPowerup(p) {
   ctx.restore();
 }
 
-/* ==================== РИСОВАНИЕ СКИНОВ ПО УРОВНЯМ ==================== */
-
 function drawRocket(r) {
   const level = getCurrentLevel(game.score);
   
@@ -1811,7 +1766,6 @@ function drawRocket(r) {
   }
 }
 
-// Уровень 1: Оригинальная ракета
 function drawRocket1(r) {
   ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.tilt);
   const flameH = 22 + Math.sin(r.flameT) * 6;
@@ -1881,46 +1835,38 @@ function drawRocket1(r) {
   ctx.restore();
 }
 
-// Уровень 2: R2D2
 function drawR2D2(r) {
   ctx.save();
   ctx.translate(r.x, r.y);
   
-  // Основное тело (белый + синий)
   ctx.fillStyle = '#e8e8e8';
   ctx.beginPath();
   ctx.arc(0, 0, 16, 0, Math.PI * 2);
   ctx.fill();
   
-  // Синяя полоса посередине
   ctx.fillStyle = '#0047ab';
   ctx.fillRect(-16, -5, 32, 10);
   
-  // Голова (куполообразная)
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(0, -14, 10, 0, Math.PI);
   ctx.fill();
   
-  // Синяя верхушка головы
   ctx.fillStyle = '#0047ab';
   ctx.beginPath();
   ctx.arc(0, -14, 6, 0, Math.PI);
   ctx.fill();
   
-  // Главный глаз (чёрный)
   ctx.fillStyle = '#000000';
   ctx.beginPath();
   ctx.arc(0, -16, 3, 0, Math.PI * 2);
   ctx.fill();
   
-  // Красный датчик
   ctx.fillStyle = '#ff3333';
   ctx.beginPath();
   ctx.arc(0, 2, 3, 0, Math.PI * 2);
   ctx.fill();
   
-  // Панели
   ctx.strokeStyle = '#0047ab';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -1932,7 +1878,6 @@ function drawR2D2(r) {
   ctx.lineTo(8, 5);
   ctx.stroke();
   
-  // Ноги
   ctx.fillStyle = '#d3d3d3';
   ctx.beginPath();
   ctx.arc(-8, 16, 4, 0, Math.PI * 2);
@@ -1944,38 +1889,32 @@ function drawR2D2(r) {
   ctx.restore();
 }
 
-// Уровень 3: Летающая тарелка
 function drawUFO(r) {
   ctx.save();
   ctx.translate(r.x, r.y);
   
-  // Основной диск
   ctx.fillStyle = '#1a3a52';
   ctx.beginPath();
   ctx.ellipse(0, 5, 18, 8, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Свечение края
   ctx.strokeStyle = '#00ffff';
   ctx.lineWidth = 2;
   ctx.shadowColor = '#00ffff';
   ctx.shadowBlur = 10;
   ctx.stroke();
   
-  // Купол (кабина)
   ctx.fillStyle = '#4a9eff';
   ctx.beginPath();
   ctx.arc(0, -8, 8, 0, Math.PI);
   ctx.fill();
   
-  // Свечение купола
   ctx.strokeStyle = '#00ffff';
   ctx.lineWidth = 1.5;
   ctx.shadowColor = '#00ffff';
   ctx.shadowBlur = 8;
   ctx.stroke();
   
-  // Окна в куполе
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(-3, -7, 1.5, 0, Math.PI * 2);
@@ -1988,44 +1927,36 @@ function drawUFO(r) {
   ctx.restore();
 }
 
-// Уровень 4: Хомяк с рюкзаком
 function drawHamster(r) {
   ctx.save();
   ctx.translate(r.x, r.y);
   
-  // Рюкзак (чёрный + красный)
   ctx.fillStyle = '#2a2a2a';
   ctx.beginPath();
   ctx.ellipse(0, -10, 10, 12, 0, 0, Math.PI * 2);
   ctx.fill();
   
-  // Красная полоса на рюкзаке
   ctx.fillStyle = '#ff3333';
   ctx.fillRect(-2, -8, 4, 8);
   
-  // Жёлтый квадрат на рюкзаке
   ctx.fillStyle = '#ffcc00';
   ctx.fillRect(-1.5, -5, 3, 3);
   
-  // Тело хомяка (рыжее)
   ctx.fillStyle = '#ff9933';
   ctx.beginPath();
   ctx.arc(0, 5, 12, 0, Math.PI * 2);
   ctx.fill();
   
-  // Белый живот
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(0, 8, 7, 0, Math.PI * 2);
   ctx.fill();
   
-  // Голова (рыжая)
   ctx.fillStyle = '#ff9933';
   ctx.beginPath();
   ctx.arc(0, -5, 9, 0, Math.PI * 2);
   ctx.fill();
   
-  // Белые щёки
   ctx.fillStyle = '#ffcccc';
   ctx.beginPath();
   ctx.arc(-6, -3, 4, 0, Math.PI * 2);
@@ -2034,13 +1965,11 @@ function drawHamster(r) {
   ctx.arc(6, -3, 4, 0, Math.PI * 2);
   ctx.fill();
   
-  // Нос
   ctx.fillStyle = '#ffaaaa';
   ctx.beginPath();
   ctx.arc(0, 0, 2, 0, Math.PI * 2);
   ctx.fill();
   
-  // Глаза
   ctx.fillStyle = '#000000';
   ctx.beginPath();
   ctx.arc(-4, -6, 2, 0, Math.PI * 2);
@@ -2049,7 +1978,6 @@ function drawHamster(r) {
   ctx.arc(4, -6, 2, 0, Math.PI * 2);
   ctx.fill();
   
-  // Уши
   ctx.fillStyle = '#ff9933';
   ctx.beginPath();
   ctx.arc(-6, -13, 3, 0, Math.PI * 2);
@@ -2058,7 +1986,6 @@ function drawHamster(r) {
   ctx.arc(6, -13, 3, 0, Math.PI * 2);
   ctx.fill();
   
-  // Лапки
   ctx.fillStyle = '#ffaaaa';
   ctx.beginPath();
   ctx.arc(-6, 15, 3, 0, Math.PI * 2);
@@ -2070,27 +1997,22 @@ function drawHamster(r) {
   ctx.restore();
 }
 
-// Уровень 5+: Бендер
 function drawBender(r) {
   ctx.save();
   ctx.translate(r.x, r.y);
   
-  // Ноги
   ctx.fillStyle = '#7a9ec4';
   ctx.fillRect(-3, 18, 6, 10);
   ctx.fillRect(-6, 12, 3, 6);
   ctx.fillRect(3, 12, 3, 6);
   
-  // Туловище
   ctx.fillStyle = '#9db3d9';
   ctx.fillRect(-8, -2, 16, 16);
   
-  // Дверца на туловище
   ctx.strokeStyle = '#4a5a8a';
   ctx.lineWidth = 1;
   ctx.strokeRect(-4, 2, 8, 8);
   
-  // Плечи и руки
   ctx.fillStyle = '#7a9ec4';
   ctx.beginPath();
   ctx.arc(-10, 2, 3, 0, Math.PI * 2);
@@ -2099,19 +2021,14 @@ function drawBender(r) {
   ctx.arc(10, 2, 3, 0, Math.PI * 2);
   ctx.fill();
   
-  // Сегменты рук
   ctx.fillRect(-12, 4, 4, 2);
   ctx.fillRect(8, 4, 4, 2);
   
-  // Шея
   ctx.fillStyle = '#9db3d9';
   ctx.fillRect(-6, -8, 12, 6);
   
-  // Голова
-  ctx.fillStyle = '#9db3d9';
   ctx.fillRect(-7, -18, 14, 10);
   
-  // Глаза (жёлтые)
   ctx.fillStyle = '#ffff00';
   ctx.beginPath();
   ctx.arc(-3, -15, 2, 0, Math.PI * 2);
@@ -2120,7 +2037,6 @@ function drawBender(r) {
   ctx.arc(3, -15, 2, 0, Math.PI * 2);
   ctx.fill();
   
-  // Зрачки
   ctx.fillStyle = '#000000';
   ctx.beginPath();
   ctx.arc(-3, -15, 1, 0, Math.PI * 2);
@@ -2129,11 +2045,9 @@ function drawBender(r) {
   ctx.arc(3, -15, 1, 0, Math.PI * 2);
   ctx.fill();
   
-  // Рот (жёлтые зубы)
   ctx.fillStyle = '#ffff00';
   ctx.fillRect(-5, -10, 10, 2);
   
-  // Антенна
   ctx.strokeStyle = '#7a9ec4';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -2141,7 +2055,6 @@ function drawBender(r) {
   ctx.lineTo(0, -28);
   ctx.stroke();
   
-  // Кружок на антенне
   ctx.fillStyle = '#9db3d9';
   ctx.beginPath();
   ctx.arc(0, -30, 2, 0, Math.PI * 2);
