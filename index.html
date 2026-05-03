@@ -114,35 +114,6 @@ padding: 8px 14px;
 backdrop-filter: blur(8px);
 }
 
-.hud-right {
-display: flex;
-flex-direction: column;
-align-items: center;
-gap: 8px;
-pointer-events: auto;
-}
-
-#lives-container {
-display: flex;
-gap: 6px;
-justify-content: center;
-}
-
-.heart-icon {
-font-size: 18px;
-filter: drop-shadow(0 0 4px rgba(255, 51, 51, 0.5));
-transition: all 0.3s ease;
-}
-
-.heart-icon.lost {
-animation: heartDissapear 0.4s ease-out forwards;
-}
-
-@keyframes heartDissapear {
-0% { opacity: 1; transform: scale(1) rotate(0deg); }
-100% { opacity: 0; transform: scale(0.3) rotate(-180deg); }
-}
-
 .hud-label {
 font-size: 10px;
 color: #8fa8d4;
@@ -220,6 +191,22 @@ min-width: auto !important;
 pointer-events: auto;
 }
 
+.heart-icon {
+font-size: 20px;
+filter: drop-shadow(0 0 4px rgba(255, 51, 51, 0.5));
+transition: all 0.3s ease;
+display: inline-block;
+}
+
+.heart-icon.lost {
+animation: heartDissapear 0.4s ease-out forwards;
+}
+
+@keyframes heartDissapear {
+0% { opacity: 1; transform: scale(1) rotate(0deg); }
+100% { opacity: 0; transform: scale(0.3) rotate(-180deg); }
+}
+
 .loader {
 width: 40px; height: 40px;
 border: 3px solid rgba(74, 242, 255, 0.2);
@@ -269,6 +256,27 @@ max-width: 280px;
 line-height: 1.5;
 }
 
+.leaderboard-entry {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 12px;
+background: rgba(74, 242, 255, 0.1);
+border: 1px solid rgba(74, 242, 255, 0.2);
+border-radius: 8px;
+margin-bottom: 8px;
+}
+
+.leaderboard-name {
+color: #4af2ff;
+font-weight: 900;
+}
+
+.leaderboard-score {
+color: #ffd700;
+font-weight: 900;
+}
+
 .btn-row {
 display: flex;
 gap: 12px;
@@ -297,10 +305,6 @@ opacity: 0.3;
 </head>
 <body>
 
-<!-- Telegram SDK -->
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-
 <div id="game">
   <canvas id="canvas"></canvas>
 </div>
@@ -320,12 +324,12 @@ opacity: 0.3;
       <div class="pwr-bar"><div class="pwr-fill" id="laserBar"></div></div>
     </div>
   </div>
-  <div class="hud-right">
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto;">
     <button id="soundBtn" class="sound-btn" onclick="toggleSound()">🔊</button>
-    <div id="lives-container">
-      <div class="heart-icon">❤️</div>
-      <div class="heart-icon">❤️</div>
-      <div class="heart-icon">❤️</div>
+    <div id="lives-container" style="display: flex; gap: 4px;">
+      <span class="heart-icon">❤️</span>
+      <span class="heart-icon">❤️</span>
+      <span class="heart-icon">❤️</span>
     </div>
   </div>
 </div>
@@ -369,11 +373,60 @@ opacity: 0.3;
     <div id="nextPlayTime" class="timer-display" style="display: none;"></div>
     <div class="btn-row">
       <button onclick="showMenu()">← МЕНЮ</button>
+      <button onclick="showLeaderboard()">🏆 ЛИДЕРЫ</button>
     </div>
   </div>
 </div>
 
+<!-- Leaderboard Screen -->
+
+<div id="screen-leaderboard" class="screen hidden">
+  <h2>🏆 ТОП 10 ЛИДЕРОВ 🏆</h2>
+  <div id="leaderboard-list" style="width: 100%; max-width: 400px; margin-top: 20px;">
+    <div class="loader"></div>
+  </div>
+  <div class="btn-row" style="margin-top: 30px;">
+    <button onclick="showMenu()">← МЕНЮ</button>
+  </div>
+</div>
+
 <script>
+// ==================== FIREBASE CONFIG ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyC_placeholder",
+  authDomain: "blue-rocket-game.firebaseapp.com",
+  databaseURL: "https://blue-rocket-game-default-rtdb.firebaseio.com",
+  projectId: "blue-rocket-game",
+  storageBucket: "blue-rocket-game.appspot.com",
+  messagingSenderId: "placeholder",
+  appId: "placeholder"
+};
+
+// Инициализируем Firebase
+let db = null;
+let firebaseReady = false;
+
+async function initFirebase() {
+  try {
+    const script = document.createElement('script');
+    script.src = 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
+    script.onload = () => {
+      const script2 = document.createElement('script');
+      script2.src = 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
+      script2.onload = () => {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        firebaseReady = true;
+      };
+      document.head.appendChild(script2);
+    };
+    document.head.appendChild(script);
+  } catch (e) {
+    console.log('Firebase init failed:', e);
+    firebaseReady = false;
+  }
+}
+
 // ==================== TELEGRAM WEB APP ====================
 let tg = null;
 let tgUser = null;
@@ -396,6 +449,7 @@ function initTelegram() {
 }
 
 initTelegram();
+initFirebase();
 
 // ==================== LOCAL STORAGE ====================
 const STORAGE_KEY = 'blue_rocket_';
@@ -446,7 +500,7 @@ function getTimeUntilNextPlay() {
 function $(id) { return document.getElementById(id); }
 
 function showScreen(name) {
-  ['boot', 'menu', 'over'].forEach(s => {
+  ['boot', 'menu', 'over', 'leaderboard'].forEach(s => {
     const el = $('screen-' + s);
     if (el) el.classList.toggle('hidden', s !== name);
   });
@@ -478,6 +532,8 @@ async function showGameOver(score) {
   const isNewRecord = saveScore(score);
   if (isNewRecord) {
     $('newRecord').textContent = '★ НОВЫЙ РЕКОРД ★';
+    // Сохраняем в Firebase
+    await uploadScoreToFirebase(score);
   }
   
   // Проверяем лимит игр
@@ -487,6 +543,66 @@ async function showGameOver(score) {
     const el = $('nextPlayTime');
     el.style.display = 'block';
     el.textContent = `⏳ Следующая игра через ${hours}ч`;
+  }
+}
+
+async function uploadScoreToFirebase(score) {
+  if (!firebaseReady || !db || !tgUser) return;
+  
+  try {
+    const userId = tgUser.id;
+    const userName = tgUser.first_name || 'Player';
+    const timestamp = Date.now();
+    
+    await db.ref(`leaderboard/${userId}`).set({
+      score: score,
+      name: userName,
+      timestamp: timestamp
+    });
+  } catch (e) {
+    console.log('Firebase upload failed:', e);
+  }
+}
+
+async function showLeaderboard() {
+  showScreen('leaderboard');
+  await loadLeaderboard();
+}
+
+async function loadLeaderboard() {
+  if (!firebaseReady || !db) {
+    $('leaderboard-list').innerHTML = '<div style="color: #ff6b6b;">⚠️ Firebase недоступен</div>';
+    return;
+  }
+  
+  try {
+    const snapshot = await db.ref('leaderboard').once('value');
+    const data = snapshot.val();
+    
+    if (!data) {
+      $('leaderboard-list').innerHTML = '<div style="color: #8fa8d4;">Пока нет результатов 🎮</div>';
+      return;
+    }
+    
+    const scores = Object.values(data)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+    
+    let html = '';
+    scores.forEach((entry, index) => {
+      const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}️⃣`;
+      html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(74, 242, 255, 0.1); border: 1px solid rgba(74, 242, 255, 0.2); border-radius: 8px; margin-bottom: 8px;">
+          <span style="color: #4af2ff; font-weight: 900;">${medal} ${entry.name}</span>
+          <span style="color: #ffd700; font-weight: 900;">${entry.score}</span>
+        </div>
+      `;
+    });
+    
+    $('leaderboard-list').innerHTML = html;
+  } catch (e) {
+    console.log('Load leaderboard failed:', e);
+    $('leaderboard-list').innerHTML = '<div style="color: #ff6b6b;">⚠️ Ошибка загрузки</div>';
   }
 }
 
@@ -931,6 +1047,24 @@ function update(dt) {
   $('scoreVal').textContent = game.score;
 }
 
+function updatePowerupUI() {
+  if (!game) return;
+  
+  const si = $('shieldInd'), bi = $('boostInd');
+  if (game.shieldTime > 0) {
+    si.classList.remove('hidden');
+    $('shieldBar').style.width = (game.shieldTime / game.shieldMax * 100) + '%';
+  } else si.classList.add('hidden');
+  
+  if (game.laserTime > 0) {
+    bi.classList.remove('hidden');
+    bi.textContent = '';
+    bi.innerHTML = '<div class="pwr-icon">🔴</div><div class="pwr-bar"><div class="pwr-fill" id="laserBar"></div></div>';
+    $('laserBar').style.width = (game.laserTime / game.laserMax * 100) + '%';
+    $('laserBar').style.background = 'linear-gradient(90deg, #ff4444, #ff0000)';
+  } else bi.classList.add('hidden');
+}
+
 function updateHearts() {
   const hearts = document.querySelectorAll('.heart-icon');
   hearts.forEach((heart, index) => {
@@ -1050,6 +1184,17 @@ function render() {
     ctx.restore();
   }
   
+  // Рисуем сердечки жизней в правом углу
+  const heartSize = 20;
+  const heartX = W - heartSize - 15;
+  let heartY = 20;
+  for (let i = 0; i < game.maxLives; i++) {
+    const opacity = i < game.lives ? 1 : 0.3;
+    ctx.globalAlpha = opacity;
+    drawHeartSmall(heartX - i * (heartSize + 8), heartY, heartSize);
+  }
+  ctx.globalAlpha = 1;
+  
   // Рисуем таймер
   const elapsed = Date.now() - game.gameStartTime;
   const remaining = Math.max(0, game.maxDuration - elapsed);
@@ -1060,7 +1205,28 @@ function render() {
   ctx.fillStyle = remaining < 30000 ? '#ff6b6b' : '#4af2ff';
   ctx.font = 'bold 16px Arial';
   ctx.textAlign = 'left';
-  ctx.fillText(`⏱️ ${minutes}:${secs.toString().padStart(2, '0')}`, 20, 35);
+  ctx.fillText(`⏱️ ${minutes}:${secs.toString().padStart(2, '0')}`, 20, heartY + 35);
+}
+
+function drawHeartSmall(x, y, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#ff3333';
+  ctx.shadowColor = '#ff3333';
+  ctx.shadowBlur = 8;
+  
+  const r = size * 0.5;
+  ctx.beginPath();
+  ctx.arc(-r * 0.5, -r * 0.3, r * 0.4, 0, Math.PI * 2);
+  ctx.arc(r * 0.5, -r * 0.3, r * 0.4, 0, Math.PI * 2);
+  ctx.moveTo(-r * 0.8, -r * 0.1);
+  ctx.quadraticCurveTo(0, r * 0.7, 0, r * 0.7);
+  ctx.quadraticCurveTo(0, r * 0.7, r * 0.8, -r * 0.1);
+  ctx.closePath();
+  ctx.fill();
+  
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 function drawStar(x, y, r, rot, fill, stroke) {
